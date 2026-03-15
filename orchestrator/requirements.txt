@@ -1,0 +1,8 @@
+langgraph
+langchain-aws
+langchain-google-vertexai
+fastapi
+uvicorn
+python-dotenv
+requests
+supabase

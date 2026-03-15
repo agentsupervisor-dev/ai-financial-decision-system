@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "financial-decision-machine",
+  "private_key_id": "d72894e0254fff920697b63a45d09a2c2b3edf50",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDcyZ5UnBckTOYP\nwJSl5ZqbLJoCT0Tjm0Q3Q6/m22wky1ZAsh/maXXP1KHM74fq9JsCqE8Sytd1+SSM\nzYnZzX8Q1UMjozQqWQdyc1+8LZm8Di70C1KqvdAAv4UrGuuqFD+03EyVO2Z+DLan\nu0Y9DROLmIOvhHx5iCawwIxlJ7mcBIvy6RIVIg1WuHzjeamW+LjkdTHqwfO1u1Cl\n6xhjq5bi/UhKPQ48mFfnEc6LnpfW2LxdfVVfaVGDCaz/nT4aMtgS1oeEpz4rmssm\nDkDkWEMTAz1tb0+je6EWh5Uht5K5/xvhE2AyXz5rXRanxLq6sXs/TRqSQ1iQVwzJ\nAivzsduHAgMBAAECggEABNpXpRNzPMSF8AWzHrxfvBZsYi2c3YXdp3tQ4/mhtGNV\nx4FCyz05LjLFxavkKGls+M97QXX862ZpA8FGzOdD6jpNyfw92spvK/hWO9wiu2vy\nY0HWdNNMPZ/4DN0AHhJo3hBTjJosJAwifahToGbnrZNSHasDU2aHNy5cR6LqZP/4\nIflFelQyqsNpIM4bV6aS8Wz5mA5I+nCpfjKQsTEzz/VEj7j34XylPptpBInvYI4V\npnPW8Dj55y7ZhCVmhZwdHPB6aCRMvAN+IFo+jGueXKqCIRpwNRBYDy3hLTaW3/Z3\nFDqHuloqR0iPKZAwmk4QUUhWrcsf0cYqi5KZi3O/1QKBgQDuU42YxjrQGG4+bR9b\nJCx1feXwv5N/AtWt+YCZF6FzGPjbg43pcPJreV7ky/OOmZWgaSfD7NJgLtzXdBwJ\nNP5xsW63EjPuGW3kpN7dWxeExoyhxocaGKXflUDY4CUPOaNLOcVfyoOPZUsESz5j\nRtPkL60GhFCm3lY+q03WapdnZQKBgQDtKRq0eEemosZPIRidOEFcjCk99t2Wx8Dy\n7/ASC3VkAUXSKjMrHMVWkaisFxzgz4d+UE3bXc/g3J28wRnVuf7eJtT1kYOYhgGD\nRxhNpdXixMzWMIlA6m/nFnrU8TKIBh5RX9fqvsfBmquKCAwLH916vh1gAS/8cWfp\nnpyWkgaWewKBgEH2eDtvqjmMeX7nvwT/1xpR1UG0FIPT6gZ0BybYRoRPxhkjqTSS\nYVZjymLzHB883Q//6tSsiHG8pr0vUs8tjrszC9y5ugvNl//vrguAOdszBRuFkkEj\nz005xy//oeI75rlcbQedSpp2w7OVi9f4c481ruMd3iDBawd/bFTLPcqNAoGBALWC\nFgw1WjEwtzHslJgPbAbWxuHDxIgXzZahCE3nMyscxkE5RvwiAu5kgIFlFxb//iUw\ndMYFoInqj1bdO1aWCXggpDBl9B+RwCqnCPS0jWQHVvY/I2zpgEeOrue2ygPNGvsQ\nrYHeDaghJlR4IC+Lbcj5JCZMAlvkt7DXUeTzUdNtAoGAeA2bXQ3Dn/ICwNn2JQQ0\nMbswlMoKzxyPGDtnegF/TnIVmLTdtJNfxe0uXnT09ul7C2LuLdXbAtiX8md9DiOY\nXCUe+6JkJlU5qsKBSGyETnR99HJrQROMUzR+iMdQ4wtwZ22/Ks9lihYTsAXcDiqA\nWoUWJN2EeA6oVIZ7a44Lq0k=\n-----END PRIVATE KEY-----\n",
+  "client_email": "vertex-ai-service@financial-decision-machine.iam.gserviceaccount.com",
+  "client_id": "102881710731372728995",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/vertex-ai-service%40financial-decision-machine.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
