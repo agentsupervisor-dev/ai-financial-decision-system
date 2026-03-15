@@ -1,7 +1,10 @@
 from langchain_google_vertexai import ChatVertexAI
 
 # Requires Google Cloud credentials configured
-llm = ChatVertexAI(model="gemini-1.5-pro")
+llm = ChatVertexAI(
+    model_name="gemini-2.5-pro",
+    temperature=0.2
+)
 
 def macro_agent(state):
     ticker = state["ticker"]
