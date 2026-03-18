@@ -77,10 +77,17 @@ DECISION: [BUY / HOLD / REJECT]"""
     if supabase_url and supabase_key:
         try:
             sb = create_client(supabase_url, supabase_key)
+            hurdle_components = state.get("hurdle_components", {})
             sb.table("decisions").upsert(
                 {
                     "ticker": ticker,
                     "hurdle_rate": hurdle_rate,
+                    "inflation": hurdle_components.get("inflation"),
+                    "borrowing_cost": hurdle_components.get("borrowing"),
+                    "index_return": hurdle_components.get("index_return"),
+                    "tax_drag": hurdle_components.get("tax_drag"),
+                    "opex": hurdle_components.get("opex"),
+                    "alpha_target": hurdle_components.get("alpha_target"),
                     "recommendation": final_decision,
                     "composite_score": composite,
                     "forensic_score": forensic_score,
@@ -88,7 +95,12 @@ DECISION: [BUY / HOLD / REJECT]"""
                     "asymmetry_score": asymmetry_score,
                     "confidence": confidence,
                     "expected_return": expected_return,
+                    "clears_hurdle": clears_hurdle,
+                    "excess_return": excess_return,
                     "triangulation_summary": summary[:2000],
+                    "forensic_report": (state.get("forensic_report") or "")[:5000],
+                    "macro_report": (state.get("macro_report") or "")[:5000],
+                    "asymmetry_report": (state.get("asymmetry_report") or "")[:5000],
                 },
                 on_conflict="ticker",
             ).execute()
