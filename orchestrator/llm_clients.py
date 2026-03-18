@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 
 # Forensic + Decision — Claude 3.5 Sonnet via AWS Bedrock
 claude_model = ChatBedrockConverse(
-    model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    model="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
     region_name=os.getenv("AWS_REGION", "us-east-1"),
     temperature=0.1,
 )
