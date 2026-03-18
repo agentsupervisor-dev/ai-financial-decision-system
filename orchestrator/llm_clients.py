@@ -12,7 +12,7 @@ claude_model = ChatBedrockConverse(
 
 # Macro CIO — Gemini 2.0 Flash via Google Vertex AI
 gemini_model = ChatVertexAI(
-    model="gemini-2.0-flash-001",
+    model="gemini-2.0-flash",
     project=os.getenv("GOOGLE_CLOUD_PROJECT"),
     location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
     temperature=0.2,
