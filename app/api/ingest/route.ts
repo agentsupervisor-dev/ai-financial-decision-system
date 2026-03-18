@@ -14,7 +14,7 @@ async function fetchProfile(symbol: string, apiKey: string) {
     const res = await fetch(url, { cache: "no-store" });
     const text = await res.text();
 
-    let data: any;
+    let data;
     try {
       data = JSON.parse(text);
     } catch {
@@ -60,7 +60,7 @@ export async function GET() {
       const profile = await fetchProfile(ticker, apiKey);
 
       if (!profile.ok) {
-        failed.push({ ticker, reason: profile.reason });
+        failed.push({ ticker, reason: profile.reason ?? "Unknown error" });
         continue;
       }
 

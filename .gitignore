@@ -55,3 +55,5 @@ __pycache__/
 *.pyc
 
 
+.env_backup_03_18
+.env*
