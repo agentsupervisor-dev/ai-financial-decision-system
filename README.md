@@ -50,7 +50,9 @@ User (Next.js UI)
 
 **AWS (Forensic + Decision agents)**
 1. Sign up at [aws.amazon.com](https://aws.amazon.com)
-2. Navigate to **Amazon Bedrock Console** → request access for **Claude 3.5 Sonnet**
+2. Navigate to **Amazon Bedrock Console** → **Model catalog** → find **Claude 3.5 Sonnet v2**
+   - Models are now auto-enabled on first invocation — no manual access request needed
+   - First-time Anthropic users: click **Open in playground** and submit the one-time use case form if prompted
 3. Go to **IAM** → create a User with `AmazonBedrockFullAccess`
 4. Generate an **Access Key ID** and **Secret Access Key**
 
