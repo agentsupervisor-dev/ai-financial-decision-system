@@ -1,31 +1,37 @@
-from langchain_google_vertexai import ChatVertexAI
+import re
+from llm_clients import gemini_model
 
-# Requires Google Cloud credentials configured
-llm = ChatVertexAI(
-    model_name="gemini-2.5-pro",
-    temperature=0.2
-)
 
 def macro_agent(state):
     ticker = state["ticker"]
+    hurdle = state.get("hurdle_rate", 40.0)
 
-    prompt = f"""
-You are a macro strategist.
-
-Analyze the macroeconomic environment affecting {ticker}.
+    prompt = f"""You are a macro strategist and CIO. Analyze the macroeconomic environment affecting {ticker}.
 
 Consider:
-- interest rates
-- sector growth
-- global economic conditions
+- Current interest rate regime and trajectory
+- Inflation dynamics and real rate impact on valuations
+- Sector-specific growth drivers and headwinds
+- Global demand conditions and geopolitical risks
+- Fed policy and liquidity conditions
 
-Return a short paragraph.
-"""
+The investor requires a {hurdle}% annual return to clear their hurdle rate.
+Given macro conditions, assess whether the backdrop supports or hinders achieving this return.
+
+End your response with exactly this line:
+MACRO_SCORE: [number 0-100, where 100 = extremely favorable macro backdrop]"""
 
     try:
-        response = llm.invoke(prompt)
-        state["macro_report"] = response.content
+        response = gemini_model.invoke(prompt)
+        report = response.content
     except Exception as e:
-        state["macro_report"] = f"Macro analysis failed: {str(e)}"
+        report = f"Macro analysis failed: {str(e)}\nMACRO_SCORE: 50"
 
-    return state
+    match = re.search(r"MACRO_SCORE:\s*(\d+(?:\.\d+)?)", report)
+    score = float(match.group(1)) if match else 50.0
+
+    return {
+        **state,
+        "macro_report": report,
+        "macro_score": min(max(score, 0), 100),
+    }

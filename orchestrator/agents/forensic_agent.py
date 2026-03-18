@@ -1,28 +1,70 @@
 import os
-from langchain_aws import ChatBedrock
+import re
+import requests
+from llm_clients import claude_model
 
-llm = ChatBedrock(
-    model_id="anthropic.claude-3-haiku-20240307-v1:0",
-    region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1")
-)
+FMP_API_KEY = os.getenv("FMP_API_KEY")
+
+
+def _fetch_fmp(path: str):
+    url = f"https://financialmodelingprep.com{path}&apikey={FMP_API_KEY}"
+    r = requests.get(url, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
 
 def forensic_agent(state):
-
     ticker = state["ticker"]
 
-    prompt = f"""
-You are a forensic financial analyst.
+    try:
+        profile = _fetch_fmp(f"/stable/profile?symbol={ticker}")
+        company = profile[0] if profile else {}
+    except Exception:
+        company = {}
 
-Analyze the durability of the business moat for {ticker}.
+    try:
+        income = _fetch_fmp(f"/stable/income-statement?symbol={ticker}&limit=4")
+        income_str = str(income[:2]) if income else "Not available"
+    except Exception:
+        income_str = "Not available"
 
-Look for:
-- moat decay
-- margin compression
-- structural risks
-"""
+    try:
+        transcript = _fetch_fmp(f"/stable/earning_call_transcript?symbol={ticker}&limit=1")
+        transcript_text = transcript[0].get("content", "")[:3000] if transcript else "Not available"
+    except Exception:
+        transcript_text = "Not available"
 
-    response = llm.invoke(prompt)
+    prompt = f"""You are a forensic financial analyst. Analyze {ticker} for business moat durability.
 
-    state["forensic_report"] = response.content
+Company: {company.get('companyName', ticker)} | Sector: {company.get('sector', 'Unknown')}
+Market Cap: {company.get('marketCap', 'Unknown')} | Description: {company.get('description', '')[:500]}
 
-    return state
+Recent Income Statements:
+{income_str}
+
+Latest Earnings Call Transcript (excerpt):
+{transcript_text}
+
+Analyze:
+1. Moat durability (pricing power, switching costs, network effects)
+2. Margin trends (compression or expansion)
+3. Structural risks (competitive threats, regulatory, disruption)
+4. Management quality signals from the transcript
+
+End your response with exactly this line:
+FORENSIC_SCORE: [number 0-100]"""
+
+    try:
+        response = claude_model.invoke(prompt)
+        report = response.content
+    except Exception as e:
+        report = f"Forensic analysis failed: {str(e)}\nFORENSIC_SCORE: 50"
+
+    match = re.search(r"FORENSIC_SCORE:\s*(\d+(?:\.\d+)?)", report)
+    score = float(match.group(1)) if match else 50.0
+
+    return {
+        **state,
+        "forensic_report": report,
+        "forensic_score": min(max(score, 0), 100),
+    }

@@ -1,8 +1,10 @@
 langgraph
 langchain-aws
 langchain-google-vertexai
+langchain-openai
 fastapi
 uvicorn
 python-dotenv
 requests
 supabase
+google-auth
