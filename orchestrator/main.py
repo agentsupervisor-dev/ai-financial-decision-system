@@ -2,6 +2,17 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
+import os, json, tempfile
+
+# If GOOGLE_APPLICATION_CREDENTIALS contains JSON content (not a file path),
+# write it to a temp file so the Google SDK can read it.
+_gac = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+if _gac.strip().startswith("{"):
+    _tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+    _tmp.write(_gac)
+    _tmp.close()
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _tmp.name
+
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from graph import graph
