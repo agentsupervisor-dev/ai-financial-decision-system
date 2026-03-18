@@ -104,8 +104,8 @@ DECISION: [BUY / HOLD / REJECT]"""
                 },
                 on_conflict="ticker",
             ).execute()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Supabase upsert error: {e}")
 
     return {
         **state,
