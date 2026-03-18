@@ -30,8 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — ignore secrets but allow the example template
+.env
+.env.local
+.env.*.local
 
 # vercel
 .vercel
@@ -42,10 +44,6 @@ next-env.d.ts
 
 # Python virtual environment
 venv/
-
-# Environment variables
-.env
-.env.local
 
 # Google credentials
 google-credentials.json
