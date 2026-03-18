@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 interface HurdleComponents {
@@ -125,6 +126,14 @@ export default function Home() {
           <p className="mt-2 text-zinc-400 text-sm">
             Multi-agent analysis — Forensic · Macro · Asymmetry · Decision
           </p>
+          <div className="mt-4">
+            <Link
+              href="/login"
+              className="text-sm text-emerald-400 hover:text-emerald-200"
+            >
+              Sign in / Manage session →
+            </Link>
+          </div>
         </div>
 
         {/* Input */}
