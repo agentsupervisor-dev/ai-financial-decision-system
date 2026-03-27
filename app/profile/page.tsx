@@ -41,19 +41,21 @@ export default function ProfilesPage() {
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12">
+      <div className="max-w-2xl mx-auto px-6 py-12 pb-32">
         {/* Header */}
         <div className="flex items-end justify-between mb-8">
           <div>
             <h1 className="text-[32px] font-semibold text-[#1d1d1f] tracking-tight">Investment Profiles</h1>
             <p className="mt-1 text-[15px] text-[#6e6e73]">Manage your investment goals and hurdle rates.</p>
           </div>
-          <button
-            onClick={() => router.push("/profile/new")}
-            className="px-5 py-2.5 rounded-xl text-[14px] font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: "#0071e3" }}>
-            + Add Profile
-          </button>
+          {profiles.length > 0 && (
+            <button
+              onClick={() => router.push("/profile/new")}
+              className="px-5 py-2.5 rounded-xl text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: "#0071e3" }}>
+              + Add Profile
+            </button>
+          )}
         </div>
 
         {/* Profile list */}
