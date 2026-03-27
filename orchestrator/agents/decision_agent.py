@@ -27,7 +27,7 @@ def decision_agent(state):
     excess_return = round(expected_return - hurdle_rate, 2)
 
     # Rule-based decision (deterministic — Claude only writes the rationale)
-    if composite >= 65 and confidence >= 50 and clears_hurdle:
+    if composite >= 55 and confidence >= 50 and clears_hurdle:
         final_decision = "BUY"
     elif composite < 45 or not clears_hurdle:
         final_decision = "REJECT"
