@@ -88,20 +88,26 @@ export default function Home() {
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function fetchProfiles() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { router.replace("/login"); return; }
+    setUserEmail(session.user.email ?? null);
+    try {
+      const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
+      const json = await res.json();
+      setProfiles(json.profiles ?? []);
+    } catch { /* no profiles */ }
+    setAuthLoading(false);
+  }
+
   useEffect(() => {
-    async function loadSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace("/login"); return; }
-      setUserEmail(session.user.email ?? null);
-      try {
-        const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
-        const json = await res.json();
-        setProfiles(json.profiles ?? []);
-      } catch { /* no profiles */ }
-      setAuthLoading(false);
-    }
-    loadSession();
-  }, [router]);
+    fetchProfiles();
+
+    // Re-fetch whenever the user navigates back to this page
+    const handleVisibility = () => { if (document.visibilityState === "visible") fetchProfiles(); };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleScan(profileId: number) {
     setScanning(profileId);
