@@ -15,10 +15,10 @@ interface ProfileForm {
   alpha_target: number;
 }
 
-const PERIOD_LABELS: Record<InvestmentPeriod, string> = {
-  "1yr": "Short-term (1 year)",
-  "3yr": "Medium-term (3 years)",
-  "5yr": "Long-term (5+ years)",
+const PERIOD_LABELS: Record<InvestmentPeriod, { short: string; long: string }> = {
+  "1yr": { short: "1 Year",   long: "Short-term" },
+  "3yr": { short: "3 Years",  long: "Medium-term" },
+  "5yr": { short: "5+ Years", long: "Long-term" },
 };
 
 const defaults: ProfileForm = {
@@ -29,6 +29,8 @@ const defaults: ProfileForm = {
   opex: 0.5,
   alpha_target: 6.5,
 };
+
+const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" };
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -41,16 +43,10 @@ export default function ProfilePage() {
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
+      if (!session) { router.replace("/login"); return; }
       setUserEmail(session.user.email ?? null);
-
       try {
-        const res = await fetch("/api/profile", {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
         const json = await res.json();
         if (json.profile) {
           setForm({
@@ -62,9 +58,7 @@ export default function ProfilePage() {
             alpha_target: json.profile.alpha_target,
           });
         }
-      } catch {
-        // No profile yet — defaults will be used
-      }
+      } catch { /* use defaults */ }
       setLoading(false);
     }
     load();
@@ -77,111 +71,94 @@ export default function ProfilePage() {
     setError(null);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.replace("/login"); return; }
-
     const res = await fetch("/api/profile", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify(form),
     });
     const json = await res.json();
-    if (!res.ok) {
-      setError(json.error || "Failed to save profile");
-    } else {
-      router.push("/");
-    }
+    if (!res.ok) { setError(json.error || "Failed to save profile"); } else { router.push("/"); }
     setSaving(false);
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <span className="text-zinc-500 text-sm animate-pulse">Loading profile…</span>
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center" style={APPLE}>
+        <p className="text-[#6e6e73] text-[15px]">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      <div className="max-w-xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
+      {/* Nav */}
+      <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
+          <button onClick={() => router.push("/")} className="text-[#0071e3] text-[13px] hover:underline">← Dashboard</button>
+          <span className="text-[13px] text-[#6e6e73] font-medium">{userEmail}</span>
+        </div>
+      </nav>
+
+      <div className="max-w-2xl mx-auto px-6 py-12">
+        {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Investment Profile</h1>
-          <p className="mt-2 text-zinc-400 text-sm">
-            Signed in as <span className="text-zinc-300 font-mono">{userEmail}</span>
-          </p>
+          <h1 className="text-[32px] font-semibold text-[#1d1d1f] tracking-tight">Investment Profile</h1>
+          <p className="mt-1 text-[15px] text-[#6e6e73]">Set your time horizon and required return rate.</p>
         </div>
 
         {/* Investment Period */}
-        <div className="mb-8">
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">
-            Investment Time Period
-          </h2>
+        <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-5">
+          <h2 className="text-[13px] font-semibold text-[#1d1d1f] uppercase tracking-widest mb-4">Investment Time Period</h2>
           <div className="grid grid-cols-3 gap-3">
             {(["1yr", "3yr", "5yr"] as InvestmentPeriod[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setForm((f) => ({ ...f, investment_period: p }))}
-                className={`rounded-xl border px-4 py-4 text-center transition-colors ${
-                  form.investment_period === p
-                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
-                }`}
-              >
-                <div className="font-bold text-lg font-mono">{p}</div>
-                <div className="text-xs mt-1 leading-tight">{PERIOD_LABELS[p].split(" ").slice(0, 1)}</div>
+              <button key={p} onClick={() => setForm((f) => ({ ...f, investment_period: p }))}
+                className="rounded-xl border py-5 text-center transition-all"
+                style={{
+                  borderColor: form.investment_period === p ? "#0071e3" : "#d2d2d7",
+                  background: form.investment_period === p ? "#e8f0fe" : "#f5f5f7",
+                }}>
+                <div className="text-[20px] font-semibold" style={{ color: form.investment_period === p ? "#0071e3" : "#1d1d1f" }}>
+                  {PERIOD_LABELS[p].short}
+                </div>
+                <div className="text-[12px] mt-1" style={{ color: form.investment_period === p ? "#0071e3" : "#6e6e73" }}>
+                  {PERIOD_LABELS[p].long}
+                </div>
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-zinc-500">{PERIOD_LABELS[form.investment_period]}</p>
         </div>
 
         {/* Hurdle Rate */}
-        <div className="mb-8">
-          <div className="flex justify-between items-baseline mb-3">
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
-              Hurdle Rate Components
-            </h2>
-            <span className="font-mono text-emerald-400 font-bold text-sm">{totalHurdle.toFixed(1)}% total</span>
+        <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-[13px] font-semibold text-[#1d1d1f] uppercase tracking-widest">Hurdle Rate Components</h2>
+            <span className="text-[22px] font-semibold" style={{ color: "#0071e3" }}>{totalHurdle.toFixed(1)}%</span>
           </div>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 grid grid-cols-2 gap-4">
-            {(
-              [
-                ["inflation", "Inflation (%)"],
-                ["borrowing", "Borrowing Cost (%)"],
-                ["index_return", "Index Return (%)"],
-                ["opex", "OpEx (%)"],
-                ["alpha_target", "Alpha Target (%)"],
-              ] as [keyof ProfileForm, string][]
-            ).map(([key, label]) => (
+          <div className="grid grid-cols-2 gap-4">
+            {([
+              ["inflation",    "Inflation (%)"],
+              ["borrowing",    "Borrowing Cost (%)"],
+              ["index_return", "Index Return (%)"],
+              ["opex",         "OpEx (%)"],
+              ["alpha_target", "Alpha Target (%)"],
+            ] as [keyof ProfileForm, string][]).map(([key, label]) => (
               <div key={key}>
-                <label className="block text-xs text-zinc-500 mb-1">{label}</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={form[key] as number}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))
-                  }
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-zinc-500"
-                />
+                <label className="block text-[12px] text-[#6e6e73] mb-1.5">{label}</label>
+                <input type="number" step="0.1" value={form[key] as number}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
+                  className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-2.5 text-[15px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
               </div>
             ))}
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-950/40 border border-red-800/40 rounded-xl p-4 text-red-400 text-sm">
-            {error}
-          </div>
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600 mb-5">{error}</div>
         )}
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full px-6 py-3 bg-white text-black font-semibold rounded-lg hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
+        <button onClick={handleSave} disabled={saving}
+          className="w-full py-3.5 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: "#0071e3" }}>
           {saving ? "Saving…" : "Save & Go to Dashboard"}
         </button>
       </div>

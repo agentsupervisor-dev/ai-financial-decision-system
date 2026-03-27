@@ -44,16 +44,19 @@ const PERIOD_LABELS: Record<string, string> = {
   "5yr": "Long-term · 5+ years",
 };
 
+const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" };
+
 function DecisionBadge({ decision }: { decision: string | null }) {
   if (!decision) return null;
-  const config: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-    BUY:    { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30", icon: "▲" },
-    HOLD:   { bg: "bg-amber-400/10",   text: "text-amber-400",   border: "border-amber-400/30",   icon: "◼" },
-    REJECT: { bg: "bg-red-500/10",     text: "text-red-400",     border: "border-red-500/30",     icon: "▼" },
+  const config: Record<string, { bg: string; color: string; icon: string }> = {
+    BUY:    { bg: "#e3f5e9", color: "#1a7f3c", icon: "▲" },
+    HOLD:   { bg: "#fef6e0", color: "#a3730a", icon: "◼" },
+    REJECT: { bg: "#fde8e8", color: "#c0392b", icon: "▼" },
   };
   const c = config[decision] ?? config["HOLD"];
   return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg border text-sm font-bold tracking-widest ${c.bg} ${c.text} ${c.border}`}>
+    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[12px] font-semibold tracking-wider"
+      style={{ background: c.bg, color: c.color }}>
       {c.icon} {decision}
     </span>
   );
@@ -61,15 +64,15 @@ function DecisionBadge({ decision }: { decision: string | null }) {
 
 function ScoreBar({ label, score }: { label: string; score: number | null }) {
   if (score === null) return null;
-  const color = score >= 65 ? "bg-emerald-500" : score >= 45 ? "bg-amber-400" : "bg-red-500";
+  const color = score >= 65 ? "#34c759" : score >= 45 ? "#ff9f0a" : "#ff3b30";
   return (
-    <div className="mb-2">
-      <div className="flex justify-between text-xs mb-1">
-        <span className="text-zinc-500">{label}</span>
-        <span className="font-mono text-zinc-300">{score.toFixed(1)}</span>
+    <div className="mb-3">
+      <div className="flex justify-between text-[12px] mb-1.5">
+        <span className="text-[#6e6e73]">{label}</span>
+        <span className="font-medium text-[#1d1d1f]">{score.toFixed(1)}</span>
       </div>
-      <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
+      <div className="h-1.5 bg-[#e5e5ea] rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, background: color }} />
       </div>
     </div>
   );
@@ -88,25 +91,16 @@ export default function Home() {
   useEffect(() => {
     async function loadSession() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
+      if (!session) { router.replace("/login"); return; }
       setUserEmail(session.user.email ?? null);
-
       try {
-        const res = await fetch("/api/profile", {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
         const json = await res.json();
         if (json.profile) {
           const p = json.profile;
-          const hurdle_rate = p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target;
-          setProfile({ ...p, hurdle_rate });
+          setProfile({ ...p, hurdle_rate: p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target });
         }
-      } catch {
-        // Profile not set up yet — user will see the setup prompt
-      }
+      } catch { /* no profile yet */ }
       setAuthLoading(false);
     }
     loadSession();
@@ -116,14 +110,10 @@ export default function Home() {
     setScanning(true);
     setError(null);
     setScanResult(null);
-
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.replace("/login"); return; }
-
     try {
-      const res = await fetch("/api/scan", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const res = await fetch("/api/scan", { headers: { Authorization: `Bearer ${session.access_token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Scan failed");
       setScanResult(data);
@@ -136,90 +126,89 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <span className="text-zinc-500 text-sm animate-pulse">Loading…</span>
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center" style={APPLE}>
+        <p className="text-[#6e6e73] text-[15px]">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      <div className="max-w-3xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
 
-        {/* Header */}
-        <div className="flex items-start justify-between mb-10">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Finance Decision Machine</h1>
-            <p className="mt-1 text-zinc-400 text-sm">Multi-agent analysis — Forensic · Macro · Asymmetry · Decision</p>
-          </div>
-          <div className="text-right text-xs text-zinc-500 space-y-1">
-            <p className="font-mono">{userEmail}</p>
-            <div className="flex gap-3 justify-end">
-              <Link href="/profile" className="text-emerald-400 hover:text-emerald-200">Edit profile</Link>
-              <button
-                onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
-                className="text-zinc-500 hover:text-red-400 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
+      {/* Nav */}
+      <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
+          <span className="text-[15px] font-semibold text-[#1d1d1f]">Finance Decision Machine</span>
+          <div className="flex items-center gap-5">
+            <span className="text-[13px] text-[#6e6e73] hidden sm:block">{userEmail}</span>
+            <Link href="/profile" className="text-[13px] text-[#0071e3] hover:underline">Edit Profile</Link>
+            <button
+              onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
+              className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">
+              Sign out
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* Profile Summary */}
+      <div className="max-w-3xl mx-auto px-6 py-12">
+
+        {/* Hero */}
+        <div className="mb-10">
+          <h1 className="text-[40px] font-semibold text-[#1d1d1f] tracking-tight leading-tight">Market Scan</h1>
+          <p className="mt-1.5 text-[17px] text-[#6e6e73]">Multi-agent AI analysis — Forensic · Macro · Asymmetry · Decision</p>
+        </div>
+
+        {/* Profile card */}
         {profile ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Your Investment Profile</h2>
-              <Link href="/profile" className="text-xs text-zinc-500 hover:text-zinc-300">Edit</Link>
+          <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-[12px] font-semibold text-[#6e6e73] uppercase tracking-widest mb-1">Your Profile</p>
+                <p className="text-[15px] font-medium text-[#1d1d1f]">{PERIOD_LABELS[profile.investment_period]}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[12px] text-[#6e6e73] mb-0.5">Hurdle Rate</p>
+                <p className="text-[28px] font-semibold" style={{ color: "#0071e3" }}>{profile.hurdle_rate.toFixed(1)}%</p>
+              </div>
             </div>
-            <div className="flex gap-6 flex-wrap">
-              <div>
-                <div className="text-xs text-zinc-500 mb-1">Time Period</div>
-                <div className="text-sm font-semibold text-white">{PERIOD_LABELS[profile.investment_period]}</div>
-              </div>
-              <div>
-                <div className="text-xs text-zinc-500 mb-1">Hurdle Rate</div>
-                <div className="text-sm font-mono font-bold text-emerald-400">{profile.hurdle_rate.toFixed(1)}%</div>
-              </div>
-              <div className="flex gap-3 text-xs text-zinc-500 flex-wrap items-end">
-                {[
-                  ["Inflation", profile.inflation],
-                  ["Borrowing", profile.borrowing],
-                  ["Index", profile.index_return],
-                  ["OpEx", profile.opex],
-                  ["Alpha", profile.alpha_target],
-                ].map(([label, val]) => (
-                  <span key={label as string}>{label}: <span className="text-zinc-300 font-mono">{(val as number).toFixed(1)}%</span></span>
-                ))}
-              </div>
+            <div className="flex gap-4 flex-wrap pt-4 border-t border-[#f0f0f0]">
+              {[
+                ["Inflation",  profile.inflation],
+                ["Borrowing",  profile.borrowing],
+                ["Index",      profile.index_return],
+                ["OpEx",       profile.opex],
+                ["Alpha",      profile.alpha_target],
+              ].map(([label, val]) => (
+                <div key={label as string} className="text-center">
+                  <p className="text-[11px] text-[#aeaeb2]">{label as string}</p>
+                  <p className="text-[13px] font-medium text-[#1d1d1f]">{(val as number).toFixed(1)}%</p>
+                </div>
+              ))}
             </div>
           </div>
         ) : (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-8 text-center">
-            <p className="text-zinc-400 text-sm mb-3">Set up your investment profile to start scanning.</p>
-            <Link
-              href="/profile"
-              className="inline-block px-5 py-2 bg-white text-black font-semibold rounded-lg hover:bg-zinc-200 transition-colors text-sm"
-            >
-              Set up profile →
+          <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-8 mb-6 text-center">
+            <p className="text-[15px] text-[#6e6e73] mb-4">Set up your investment profile to start scanning.</p>
+            <Link href="/profile"
+              className="inline-block px-6 py-3 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: "#0071e3" }}>
+              Set up Profile →
             </Link>
           </div>
         )}
 
-        {/* Scan Button */}
+        {/* Scan button */}
         {profile && (
           <div className="mb-8">
-            <button
-              onClick={handleScan}
-              disabled={scanning}
-              className="w-full px-6 py-4 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-lg"
-            >
-              {scanning ? `Scanning all 20 stocks… this takes ~2-3 min` : "Run Full Market Scan"}
+            <button onClick={handleScan} disabled={scanning}
+              className="w-full py-4 rounded-2xl text-[17px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "#0071e3" }}>
+              {scanning ? "Analyzing stocks…" : "Run Full Market Scan"}
             </button>
             {scanning && (
-              <p className="mt-2 text-xs text-zinc-500 text-center animate-pulse">
-                Running Forensic (Claude) → Macro (Gemini) → Asymmetry (DeepSeek) → Decision for each stock…
+              <p className="mt-2.5 text-[12px] text-[#aeaeb2] text-center animate-pulse">
+                Forensic (Claude) → Macro (Gemini) → Asymmetry (DeepSeek) → Decision
               </p>
             )}
           </div>
@@ -227,74 +216,73 @@ export default function Home() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-950/40 border border-red-800/40 rounded-xl p-5 text-red-400 text-sm mb-6">
-            {error}
-          </div>
+          <div className="rounded-2xl bg-red-50 border border-red-200 px-5 py-4 text-[14px] text-red-600 mb-6">{error}</div>
         )}
 
         {/* Results */}
         {scanResult && (
           <div>
-            <div className="flex items-baseline justify-between mb-5">
-              <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-widest">
-                Scan Results
-              </h2>
-              <span className="text-xs text-zinc-500">
-                {scanResult.total_passing} of {scanResult.total_scanned} stocks cleared {scanResult.profile.hurdle_rate.toFixed(1)}% hurdle
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">Results</h2>
+              <span className="text-[13px] text-[#6e6e73]">
+                {scanResult.total_passing} of {scanResult.total_scanned} cleared hurdle
               </span>
             </div>
 
-            <div className="space-y-4">
-                {scanResult.results.map((stock) => (
-                  <div key={stock.ticker} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-                    {/* Stock header row */}
-                    <button
-                      className="w-full text-left px-6 py-4 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
-                      onClick={() => setExpandedTicker(expandedTicker === stock.ticker ? null : stock.ticker)}
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className="text-xl font-bold font-mono text-white">{stock.ticker}</span>
-                        <DecisionBadge decision={stock.final_decision} />
-                        <span className={`text-xs px-2 py-0.5 rounded font-semibold ${stock.clears_hurdle ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                          {stock.expected_return?.toFixed(1)}% expected
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-zinc-500">
-                        <span>Composite: <span className="text-white font-mono">{stock.composite_score?.toFixed(1)}</span></span>
-                        <span>Confidence: <span className="text-white font-mono">{stock.confidence?.toFixed(0)}%</span></span>
-                        <span className="text-zinc-600">{expandedTicker === stock.ticker ? "▲" : "▼"}</span>
-                      </div>
-                    </button>
+            <div className="space-y-3">
+              {scanResult.results.map((stock) => (
+                <div key={stock.ticker} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm overflow-hidden">
+                  <button
+                    className="w-full text-left px-6 py-5 flex items-center justify-between hover:bg-[#fafafa] transition-colors"
+                    onClick={() => setExpandedTicker(expandedTicker === stock.ticker ? null : stock.ticker)}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[20px] font-semibold text-[#1d1d1f]">{stock.ticker}</span>
+                      <DecisionBadge decision={stock.final_decision} />
+                      <span className="text-[12px] px-2.5 py-1 rounded-lg font-medium"
+                        style={{ background: stock.clears_hurdle ? "#e3f5e9" : "#fde8e8", color: stock.clears_hurdle ? "#1a7f3c" : "#c0392b" }}>
+                        {stock.expected_return?.toFixed(1)}% expected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-5 text-[12px] text-[#6e6e73]">
+                      <span>Composite <span className="font-semibold text-[#1d1d1f]">{stock.composite_score?.toFixed(1)}</span></span>
+                      <span>Confidence <span className="font-semibold text-[#1d1d1f]">{stock.confidence?.toFixed(0)}%</span></span>
+                      <span className="text-[#aeaeb2]">{expandedTicker === stock.ticker ? "▲" : "▼"}</span>
+                    </div>
+                  </button>
 
-                    {/* Expanded detail */}
-                    {expandedTicker === stock.ticker && (
-                      <div className="px-6 pb-5 border-t border-zinc-800">
-                        <div className="mt-4 mb-4">
-                          <ScoreBar label="Forensic — Business Moat (Claude)" score={stock.forensic_score} />
-                          <ScoreBar label="Macro — Economic Backdrop (Gemini)" score={stock.macro_score} />
-                          <ScoreBar label="Asymmetry — Risk/Reward (DeepSeek)" score={stock.asymmetry_score} />
-                          <div className="mt-3 pt-3 border-t border-zinc-800">
-                            <ScoreBar label="Composite Score (40 / 30 / 30)" score={stock.composite_score} />
-                          </div>
+                  {expandedTicker === stock.ticker && (
+                    <div className="px-6 pb-6 border-t border-[#f0f0f0]">
+                      <div className="mt-5 mb-4">
+                        <ScoreBar label="Forensic — Business Moat (Claude)" score={stock.forensic_score} />
+                        <ScoreBar label="Macro — Economic Backdrop (Gemini)" score={stock.macro_score} />
+                        <ScoreBar label="Asymmetry — Risk/Reward (DeepSeek)" score={stock.asymmetry_score} />
+                        <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
+                          <ScoreBar label="Composite Score (40 / 30 / 30)" score={stock.composite_score} />
                         </div>
-                        <div className="flex gap-4 text-xs text-zinc-500 mb-4">
-                          <span>Expected: <span className="text-emerald-400 font-mono">{stock.expected_return?.toFixed(1)}%</span></span>
-                          <span>Required: <span className="text-zinc-300 font-mono">{stock.hurdle_rate?.toFixed(1)}%</span></span>
-                          <span>Excess: <span className={`font-mono ${(stock.excess_return ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            {(stock.excess_return ?? 0) >= 0 ? "+" : ""}{stock.excess_return?.toFixed(1)}%
-                          </span></span>
-                        </div>
-                        {stock.decision_summary && (
-                          <p className="text-zinc-300 text-sm leading-relaxed">{stock.decision_summary}</p>
-                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      <div className="flex gap-5 text-[13px] text-[#6e6e73] mb-4">
+                        <span>Expected <span className="font-semibold" style={{ color: "#34c759" }}>{stock.expected_return?.toFixed(1)}%</span></span>
+                        <span>Required <span className="font-semibold text-[#1d1d1f]">{stock.hurdle_rate?.toFixed(1)}%</span></span>
+                        <span>Excess <span className="font-semibold" style={{ color: (stock.excess_return ?? 0) >= 0 ? "#34c759" : "#ff3b30" }}>
+                          {(stock.excess_return ?? 0) >= 0 ? "+" : ""}{stock.excess_return?.toFixed(1)}%
+                        </span></span>
+                      </div>
+                      {stock.decision_summary && (
+                        <p className="text-[14px] text-[#3a3a3c] leading-relaxed">{stock.decision_summary}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-black/[0.06] mt-16 py-6 text-center">
+        <p className="text-[12px] text-[#aeaeb2]">Copyright © 2025 Finance Decision Machine. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
