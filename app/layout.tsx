@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ScanProvider } from "@/lib/ScanContext";
 import ToastContainer from "@/app/components/ToastContainer";
+import ScanStatusBar from "@/app/components/ScanStatusBar";
 
 const geistSans = localFont({
   src: "../public/fonts/GeistVF.woff",
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ScanProvider>
           {children}
+          <ScanStatusBar />
           <ToastContainer />
         </ScanProvider>
       </body>

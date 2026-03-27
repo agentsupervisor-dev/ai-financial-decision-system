@@ -30,49 +30,6 @@ function DecisionBadge({ decision }: { decision: string | null }) {
   );
 }
 
-const SCAN_STAGES = [
-  { label: "Forensic", sub: "Claude" },
-  { label: "Macro", sub: "Gemini" },
-  { label: "Asymmetry", sub: "DeepSeek" },
-  { label: "Decision", sub: "Claude" },
-];
-
-function ScanProgressBar({ progress }: { progress: number }) {
-  return (
-    <div className="mt-4 border-t border-[#f0f0f0] pt-4">
-      <div className="relative rounded-xl overflow-hidden h-14 select-none">
-        <div className="absolute inset-0 bg-[#f0f0f0]" />
-        <div className="absolute inset-y-0 left-0 bg-[#34c759]"
-          style={{ width: `${progress}%`, transition: "width 0.25s linear" }} />
-        <div className="absolute inset-0 flex pointer-events-none">
-          {SCAN_STAGES.map((_, i) => (
-            <div key={i} className={`flex-1 ${i < SCAN_STAGES.length - 1 ? "border-r border-white/30" : ""}`} />
-          ))}
-        </div>
-        <div className="absolute inset-0 flex">
-          {SCAN_STAGES.map((s) => (
-            <div key={s.label} className="flex-1 flex flex-col items-center justify-center gap-0.5">
-              <span className="text-[12px] font-semibold text-[#3a3a3c]">{s.label}</span>
-              <span className="text-[10px] text-[#aeaeb2]">{s.sub}</span>
-            </div>
-          ))}
-        </div>
-        <div className="absolute inset-0 flex"
-          style={{ clipPath: `inset(0 ${100 - progress}% 0 0 round 12px)` }}>
-          {SCAN_STAGES.map((s) => (
-            <div key={s.label} className="flex-1 flex flex-col items-center justify-center gap-0.5">
-              <span className="text-[12px] font-semibold text-white">{s.label}</span>
-              <span className="text-[10px] text-white/70">{s.sub}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="text-[11px] text-[#aeaeb2] text-center mt-2">
-        You can navigate freely while scanning…
-      </p>
-    </div>
-  );
-}
 
 function ScoreBar({ label, score }: { label: string; score: number | null }) {
   if (score === null) return null;
@@ -92,7 +49,7 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 
 export default function Home() {
   const router = useRouter();
-  const { profiles, userEmail, profilesLoaded, scans, scanProgress, startScan } = useScan();
+  const { profiles, userEmail, profilesLoaded, scans, startScan } = useScan();
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
   // Auth guard — redirect to login if no session once profiles have been checked
@@ -197,8 +154,6 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Scanning progress indicator */}
-                    {isScanning && <ScanProgressBar progress={scanProgress[profile.id] ?? 0} />}
 
                     {/* Failed state */}
                     {scan?.status === "failed" && (
