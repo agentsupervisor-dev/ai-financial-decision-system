@@ -36,7 +36,6 @@ def analyze_stock(
     inflation:    float = Query(default=3.5),
     borrowing:    float = Query(default=7.5),
     index_return: float = Query(default=12.0),
-    tax_drag:     float = Query(default=10.0),
     opex:         float = Query(default=0.5),
     alpha_target: float = Query(default=6.5),
 ):
@@ -44,7 +43,6 @@ def analyze_stock(
         "inflation":    inflation,
         "borrowing":    borrowing,
         "index_return": index_return,
-        "tax_drag":     tax_drag,
         "opex":         opex,
         "alpha_target": alpha_target,
     }

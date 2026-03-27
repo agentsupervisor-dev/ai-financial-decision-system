@@ -5,7 +5,6 @@ class HurdleComponents(TypedDict):
     inflation: float
     borrowing: float
     index_return: float
-    tax_drag: float
     opex: float
     alpha_target: float
 

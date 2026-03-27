@@ -7,7 +7,6 @@ interface HurdleComponents {
   inflation: number;
   borrowing: number;
   index_return: number;
-  tax_drag: number;
   opex: number;
   alpha_target: number;
 }
@@ -32,7 +31,6 @@ const defaultHurdle: HurdleComponents = {
   inflation: 3.5,
   borrowing: 7.5,
   index_return: 12.0,
-  tax_drag: 10.0,
   opex: 0.5,
   alpha_target: 6.5,
 };
@@ -175,7 +173,6 @@ export default function Home() {
                   ["inflation", "Inflation (%)"],
                   ["borrowing", "Borrowing Cost (%)"],
                   ["index_return", "Index Return (%)"],
-                  ["tax_drag", "Tax Drag (%)"],
                   ["opex", "OpEx (%)"],
                   ["alpha_target", "Alpha Target (%)"],
                 ] as [keyof HurdleComponents, string][]

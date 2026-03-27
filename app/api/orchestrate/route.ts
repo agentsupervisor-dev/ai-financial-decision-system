@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     "inflation",
     "borrowing",
     "index_return",
-    "tax_drag",
     "opex",
     "alpha_target",
   ];

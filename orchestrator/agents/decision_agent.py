@@ -85,7 +85,6 @@ DECISION: [BUY / HOLD / REJECT]"""
                     "inflation": hurdle_components.get("inflation"),
                     "borrowing_cost": hurdle_components.get("borrowing"),
                     "index_return": hurdle_components.get("index_return"),
-                    "tax_drag": hurdle_components.get("tax_drag"),
                     "opex": hurdle_components.get("opex"),
                     "alpha_target": hurdle_components.get("alpha_target"),
                     "recommendation": final_decision,
