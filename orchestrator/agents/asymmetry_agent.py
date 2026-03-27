@@ -5,6 +5,10 @@ from llm_clients import deepseek_model
 def asymmetry_agent(state):
     ticker = state["ticker"]
     hurdle = state.get("hurdle_rate", 40.0)
+    investment_period = state.get("investment_period", "3yr")
+
+    period_map = {"1yr": "1 year", "3yr": "3 years", "5yr": "5+ years"}
+    horizon = period_map.get(investment_period, "3 years")
 
     prompt = f"""You are a hedge fund analyst specializing in asymmetric risk/reward opportunities.
 
@@ -14,8 +18,8 @@ Analyze {ticker} for:
 3. Downside protection (balance sheet strength, cash flows, floor valuation)
 4. Upside/downside asymmetry ratio
 
-The investor's hurdle rate is {hurdle}% per year. Estimate the realistic expected annual return
-if the thesis plays out over a 2-3 year horizon.
+The investor's hurdle rate is {hurdle}% per year and investment horizon is {horizon}.
+Estimate the realistic expected annual return if the thesis plays out over {horizon}.
 
 End your response with exactly these two lines:
 ASYMMETRY_SCORE: [number 0-100, where 100 = extreme asymmetric upside]

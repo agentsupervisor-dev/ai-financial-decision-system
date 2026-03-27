@@ -13,6 +13,7 @@ class AnalysisState(TypedDict):
     ticker: str
     hurdle_components: HurdleComponents
     hurdle_rate: float
+    investment_period: str
 
     forensic_report: Optional[str]
     macro_report: Optional[str]

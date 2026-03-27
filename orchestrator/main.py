@@ -33,11 +33,12 @@ app.add_middleware(
 @app.get("/analyze/{ticker}")
 def analyze_stock(
     ticker: str,
-    inflation:    float = Query(default=3.5),
-    borrowing:    float = Query(default=7.5),
-    index_return: float = Query(default=12.0),
-    opex:         float = Query(default=0.5),
-    alpha_target: float = Query(default=6.5),
+    inflation:         float = Query(default=3.5),
+    borrowing:         float = Query(default=7.5),
+    index_return:      float = Query(default=12.0),
+    opex:              float = Query(default=0.5),
+    alpha_target:      float = Query(default=6.5),
+    investment_period: str   = Query(default="3yr"),
 ):
     hurdle_components = {
         "inflation":    inflation,
@@ -51,6 +52,7 @@ def analyze_stock(
         "ticker":            ticker.upper(),
         "hurdle_components": hurdle_components,
         "hurdle_rate":       round(sum(hurdle_components.values()), 2),
+        "investment_period": investment_period,
         "forensic_report":   None,
         "macro_report":      None,
         "asymmetry_report":  None,

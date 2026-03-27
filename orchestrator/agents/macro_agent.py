@@ -5,17 +5,23 @@ from llm_clients import gemini_model
 def macro_agent(state):
     ticker = state["ticker"]
     hurdle = state.get("hurdle_rate", 40.0)
+    investment_period = state.get("investment_period", "3yr")
+
+    period_map = {"1yr": "1 year", "3yr": "3 years", "5yr": "5+ years"}
+    horizon = period_map.get(investment_period, "3 years")
 
     prompt = f"""You are a macro strategist and CIO. Analyze the macroeconomic environment affecting {ticker}.
 
+Investment horizon: {horizon}
+
 Consider:
-- Current interest rate regime and trajectory
+- Current interest rate regime and trajectory over a {horizon} horizon
 - Inflation dynamics and real rate impact on valuations
 - Sector-specific growth drivers and headwinds
 - Global demand conditions and geopolitical risks
 - Fed policy and liquidity conditions
 
-The investor requires a {hurdle}% annual return to clear their hurdle rate.
+The investor requires a {hurdle}% annual return to clear their hurdle rate over {horizon}.
 Given macro conditions, assess whether the backdrop supports or hinders achieving this return.
 
 End your response with exactly this line:
