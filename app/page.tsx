@@ -233,7 +233,7 @@ export default function Home() {
       </div>
 
       <footer className="border-t border-black/[0.06] mt-16 py-6 text-center">
-        <p className="text-[12px] text-[#aeaeb2]">Copyright © 2025 Finance Decision Machine. All rights reserved.</p>
+        <p className="text-[12px] text-[#aeaeb2]">Copyright © 2026 Finance Decision Machine. All rights reserved.</p>
       </footer>
     </div>
   );
