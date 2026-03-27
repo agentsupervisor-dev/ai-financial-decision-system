@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Profile {
@@ -80,6 +80,7 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
@@ -102,12 +103,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchProfiles();
-
-    // Re-fetch whenever the user navigates back to this page
-    const handleVisibility = () => { if (document.visibilityState === "visible") fetchProfiles(); };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleScan(profileId: number) {
     setScanning(profileId);
