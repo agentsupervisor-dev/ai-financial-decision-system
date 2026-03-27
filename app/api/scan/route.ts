@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { TICKERS } from "@/data/tickers";
+import { TICKERS as DEFAULT_TICKERS } from "@/data/tickers";
+
+async function getActiveTickers(): Promise<string[]> {
+  try {
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { data } = await sb.from("admin_tickers").select("symbol").order("added_at");
+    if (data && data.length > 0) return data.map((r) => r.symbol);
+  } catch { /* fall through to defaults */ }
+  return DEFAULT_TICKERS;
+}
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "http://localhost:8000";
 
@@ -36,9 +48,10 @@ export async function GET(req: NextRequest) {
 
   const hurdle_rate = profile.inflation + profile.borrowing + profile.index_return + profile.opex + profile.alpha_target;
 
-  // Analyze all tickers sequentially
+  // Analyze all tickers sequentially (from Supabase if set, else hardcoded defaults)
+  const tickers = await getActiveTickers();
   const results = [];
-  for (const ticker of TICKERS) {
+  for (const ticker of tickers) {
     try {
       const params = new URLSearchParams({
         inflation: String(profile.inflation),
