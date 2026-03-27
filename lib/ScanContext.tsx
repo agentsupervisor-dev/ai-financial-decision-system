@@ -100,7 +100,15 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     setProfilesLoaded(true);
   }, []);
 
-  useEffect(() => { refreshProfiles(); }, [refreshProfiles]);
+  useEffect(() => {
+    refreshProfiles();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+      if (!session) { setProfiles([]); setProfilesLoaded(true); }
+      else refreshProfiles();
+    });
+    return () => listener?.subscription.unsubscribe();
+  }, [refreshProfiles]);
 
   // Poll agent status from backend while any scan is running
   const startPolling = useCallback((profileId: number) => {
