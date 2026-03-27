@@ -32,9 +32,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .single();
 
   if (error) {
-    const msg = error.message ?? "";
-    const details = (error as { details?: string }).details ?? "";
-    const isDuplicate = error.code === "23505" || msg.includes("unique") || details.includes("unique");
+    const msg = String(error.message ?? "");
+    const isDuplicate = String(error.code) === "23505" || msg.toLowerCase().includes("duplicate key") || msg.toLowerCase().includes("unique constraint");
     return NextResponse.json(
       { error: isDuplicate ? "A profile with that name already exists." : msg },
       { status: isDuplicate ? 409 : 500 }
