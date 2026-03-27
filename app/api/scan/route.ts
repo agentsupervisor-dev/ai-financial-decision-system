@@ -60,10 +60,9 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Filter to stocks that clear the hurdle, sorted by composite score descending
-  const passing = results
-    .filter((r) => r.clears_hurdle === true)
-    .sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0));
+  // Sort by composite score descending
+  const sorted = results.sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0));
+  const total_passing = results.filter((r) => r.clears_hurdle === true).length;
 
   return NextResponse.json({
     profile: {
@@ -71,7 +70,7 @@ export async function GET(req: NextRequest) {
       hurdle_rate,
     },
     total_scanned: results.length,
-    total_passing: passing.length,
-    results: passing,
+    total_passing,
+    results: sorted,
   });
 }

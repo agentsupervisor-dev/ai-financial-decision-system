@@ -236,13 +236,7 @@ export default function Home() {
               </span>
             </div>
 
-            {scanResult.results.length === 0 ? (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center text-zinc-500 text-sm">
-                No stocks cleared your hurdle rate of {scanResult.profile.hurdle_rate.toFixed(1)}%.
-                <br />Consider adjusting your hurdle rate in your profile.
-              </div>
-            ) : (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 {scanResult.results.map((stock) => (
                   <div key={stock.ticker} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
                     {/* Stock header row */}
@@ -290,7 +284,6 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            )}
           </div>
         )}
       </div>
