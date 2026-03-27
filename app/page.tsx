@@ -48,25 +48,23 @@ const SCAN_STAGES = [
   { label: "Decision", sub: "Claude" },
 ];
 
-function ScanProgressBar({ isScanning }: { isScanning: boolean }) {
+function ScanProgressBar({ isScanning, startedAt }: { isScanning: boolean; startedAt: number }) {
   const [progress, setProgress] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (!isScanning) { setProgress(0); return; }
-    setProgress(0);
     const TARGET = 92;
-    const TICK = 250;
-    const step = (TARGET / 180000) * TICK; // reach 92% over 3 min
-    timerRef.current = setInterval(() => {
-      setProgress((p) => {
-        if (p >= TARGET) { clearInterval(timerRef.current!); return TARGET; }
-        return Math.min(p + step, TARGET);
-      });
-    }, TICK);
+    const DURATION = 180000; // 3 min
+    const tick = () => {
+      const elapsed = Date.now() - startedAt;
+      setProgress(Math.min((elapsed / DURATION) * TARGET, TARGET));
+    };
+    tick(); // set immediately on mount/return
+    timerRef.current = setInterval(tick, 250);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isScanning]);
+  }, [isScanning, startedAt]);
 
   return (
     <div className="mt-4 border-t border-[#f0f0f0] pt-4">
@@ -247,7 +245,7 @@ export default function Home() {
                     </div>
 
                     {/* Scanning progress indicator */}
-                    {isScanning && <ScanProgressBar isScanning={isScanning} />}
+                    {isScanning && <ScanProgressBar isScanning={isScanning} startedAt={scan?.startedAt ?? Date.now()} />}
 
                     {/* Failed state */}
                     {scan?.status === "failed" && (
