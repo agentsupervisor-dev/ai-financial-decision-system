@@ -152,9 +152,17 @@ export default function Home() {
             <h1 className="text-3xl font-bold tracking-tight text-white">Finance Decision Machine</h1>
             <p className="mt-1 text-zinc-400 text-sm">Multi-agent analysis — Forensic · Macro · Asymmetry · Decision</p>
           </div>
-          <div className="text-right text-xs text-zinc-500">
+          <div className="text-right text-xs text-zinc-500 space-y-1">
             <p className="font-mono">{userEmail}</p>
-            <Link href="/profile" className="text-emerald-400 hover:text-emerald-200">Edit profile →</Link>
+            <div className="flex gap-3 justify-end">
+              <Link href="/profile" className="text-emerald-400 hover:text-emerald-200">Edit profile</Link>
+              <button
+                onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
+                className="text-zinc-500 hover:text-red-400 transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
 
