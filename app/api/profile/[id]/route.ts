@@ -9,33 +9,11 @@ function serverSupabase(token: string) {
   );
 }
 
-// GET — return all profiles for the authenticated user
-export async function GET(req: NextRequest) {
+// PUT — update a specific profile
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
   const supabase = serverSupabase(token);
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ profiles: data ?? [] });
-}
-
-// POST — create a new profile
-export async function POST(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
-  const supabase = serverSupabase(token);
+  const { id } = await params;
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -47,16 +25,9 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .insert({
-      user_id: user.id,
-      name: name || "My Portfolio",
-      investment_period,
-      inflation,
-      borrowing,
-      index_return,
-      opex,
-      alpha_target,
-    })
+    .update({ name, investment_period, inflation, borrowing, index_return, opex, alpha_target })
+    .eq("id", id)
+    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -65,4 +36,28 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ profile: data });
+}
+
+// DELETE — delete a specific profile
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+  const supabase = serverSupabase(token);
+  const { id } = await params;
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }

@@ -5,7 +5,6 @@ import { TICKERS } from "@/data/tickers";
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "http://localhost:8000";
 
 export async function GET(req: NextRequest) {
-  // Authenticate user
   const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,15 +17,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Load user profile
+  // Load specific profile by id
+  const profileId = new URL(req.url).searchParams.get("profile_id");
+  if (!profileId) {
+    return NextResponse.json({ error: "Missing profile_id" }, { status: 400 });
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
+    .eq("id", profileId)
     .eq("user_id", user.id)
     .single();
 
   if (profileError || !profile) {
-    return NextResponse.json({ error: "Profile not found. Please set up your profile first." }, { status: 400 });
+    return NextResponse.json({ error: "Profile not found." }, { status: 400 });
   }
 
   const hurdle_rate = profile.inflation + profile.borrowing + profile.index_return + profile.opex + profile.alpha_target;
@@ -50,8 +55,7 @@ export async function GET(req: NextRequest) {
       );
 
       if (res.ok) {
-        const data = await res.json();
-        results.push(data);
+        results.push(await res.json());
       } else {
         results.push({ ticker, error: `Analysis failed (${res.status})`, hurdle_rate });
       }
@@ -60,15 +64,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Sort by composite score descending
   const sorted = results.sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0));
   const total_passing = results.filter((r) => r.clears_hurdle === true).length;
 
   return NextResponse.json({
-    profile: {
-      investment_period: profile.investment_period,
-      hurdle_rate,
-    },
+    profile: { name: profile.name, investment_period: profile.investment_period, hurdle_rate },
     total_scanned: results.length,
     total_passing,
     results: sorted,
