@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useScan, StockResult } from "@/lib/ScanContext";
@@ -48,24 +48,7 @@ const SCAN_STAGES = [
   { label: "Decision", sub: "Claude" },
 ];
 
-function ScanProgressBar({ isScanning, startedAt }: { isScanning: boolean; startedAt: number }) {
-  const [progress, setProgress] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (!isScanning) { setProgress(0); return; }
-    const TARGET = 92;
-    const DURATION = 180000; // 3 min
-    const tick = () => {
-      const elapsed = Date.now() - startedAt;
-      setProgress(Math.min((elapsed / DURATION) * TARGET, TARGET));
-    };
-    tick(); // set immediately on mount/return
-    timerRef.current = setInterval(tick, 250);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isScanning, startedAt]);
-
+function ScanProgressBar({ progress }: { progress: number }) {
   return (
     <div className="mt-4 border-t border-[#f0f0f0] pt-4">
       <div className="relative rounded-xl overflow-hidden h-14 select-none">
@@ -125,7 +108,7 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 
 export default function Home() {
   const router = useRouter();
-  const { scans, startScan } = useScan();
+  const { scans, scanProgress, startScan } = useScan();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
@@ -245,7 +228,7 @@ export default function Home() {
                     </div>
 
                     {/* Scanning progress indicator */}
-                    {isScanning && <ScanProgressBar isScanning={isScanning} startedAt={scan?.startedAt ?? Date.now()} />}
+                    {isScanning && <ScanProgressBar progress={scanProgress[profile.id] ?? 0} />}
 
                     {/* Failed state */}
                     {scan?.status === "failed" && (

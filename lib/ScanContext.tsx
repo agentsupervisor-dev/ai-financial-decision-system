@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useRef, useState, useCallback, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export interface StockResult {
@@ -38,6 +38,7 @@ interface Toast {
 
 interface ScanContextValue {
   scans: Record<number, ScanState>;
+  scanProgress: Record<number, number>;
   toasts: Toast[];
   startScan: (profileId: number, profileName: string) => void;
   dismissToast: (id: number) => void;
@@ -45,12 +46,38 @@ interface ScanContextValue {
 
 const ScanContext = createContext<ScanContextValue | null>(null);
 
+const PROGRESS_DURATION = 180000; // 3 min to reach 92%
+const PROGRESS_TARGET = 92;
+
 export function ScanProvider({ children }: { children: ReactNode }) {
   const [scans, setScans] = useState<Record<number, ScanState>>({});
+  const [scanProgress, setScanProgress] = useState<Record<number, number>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Keep a single global interval that ticks all running scans
+  useEffect(() => {
+    progressInterval.current = setInterval(() => {
+      setScans((prev) => {
+        const running = Object.values(prev).filter((s) => s.status === "running");
+        if (running.length === 0) return prev;
+        setScanProgress((p) => {
+          const next = { ...p };
+          for (const s of running) {
+            const elapsed = Date.now() - s.startedAt;
+            next[s.profileId] = Math.min((elapsed / PROGRESS_DURATION) * PROGRESS_TARGET, PROGRESS_TARGET);
+          }
+          return next;
+        });
+        return prev;
+      });
+    }, 250);
+    return () => { if (progressInterval.current) clearInterval(progressInterval.current); };
+  }, []);
 
   const startScan = useCallback(async (profileId: number, profileName: string) => {
+    const startedAt = Date.now();
     setScans((prev) => ({
       ...prev,
       [profileId]: {
@@ -61,9 +88,10 @@ export function ScanProvider({ children }: { children: ReactNode }) {
         total_scanned: 0,
         total_passing: 0,
         hurdle_rate: 0,
-        startedAt: Date.now(),
+        startedAt,
       },
     }));
+    setScanProgress((p) => ({ ...p, [profileId]: 0 }));
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -89,8 +117,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
           hurdle_rate: data.profile.hurdle_rate,
         },
       }));
+      setScanProgress((p) => ({ ...p, [profileId]: 100 }));
 
-      // Show toast notification
       const id = ++toastId.current;
       setToasts((prev) => [...prev, { id, profileName, total_passing: data.total_passing, total_scanned: data.total_scanned }]);
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 8000);
@@ -100,6 +128,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
         ...prev,
         [profileId]: { ...prev[profileId], status: "failed" },
       }));
+      setScanProgress((p) => ({ ...p, [profileId]: 0 }));
     }
   }, []);
 
@@ -108,7 +137,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ScanContext.Provider value={{ scans, toasts, startScan, dismissToast }}>
+    <ScanContext.Provider value={{ scans, scanProgress, toasts, startScan, dismissToast }}>
       {children}
     </ScanContext.Provider>
   );
