@@ -94,14 +94,18 @@ export default function Home() {
       }
       setUserEmail(session.user.email ?? null);
 
-      const res = await fetch("/api/profile", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const json = await res.json();
-      if (json.profile) {
-        const p = json.profile;
-        const hurdle_rate = p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target;
-        setProfile({ ...p, hurdle_rate });
+      try {
+        const res = await fetch("/api/profile", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const json = await res.json();
+        if (json.profile) {
+          const p = json.profile;
+          const hurdle_rate = p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target;
+          setProfile({ ...p, hurdle_rate });
+        }
+      } catch {
+        // Profile not set up yet — user will see the setup prompt
       }
       setAuthLoading(false);
     }

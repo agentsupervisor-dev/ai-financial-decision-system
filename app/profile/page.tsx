@@ -47,19 +47,23 @@ export default function ProfilePage() {
       }
       setUserEmail(session.user.email ?? null);
 
-      const res = await fetch("/api/profile", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const json = await res.json();
-      if (json.profile) {
-        setForm({
-          investment_period: json.profile.investment_period,
-          inflation: json.profile.inflation,
-          borrowing: json.profile.borrowing,
-          index_return: json.profile.index_return,
-          opex: json.profile.opex,
-          alpha_target: json.profile.alpha_target,
+      try {
+        const res = await fetch("/api/profile", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
         });
+        const json = await res.json();
+        if (json.profile) {
+          setForm({
+            investment_period: json.profile.investment_period,
+            inflation: json.profile.inflation,
+            borrowing: json.profile.borrowing,
+            index_return: json.profile.index_return,
+            opex: json.profile.opex,
+            alpha_target: json.profile.alpha_target,
+          });
+        }
+      } catch {
+        // No profile yet — defaults will be used
       }
       setLoading(false);
     }
