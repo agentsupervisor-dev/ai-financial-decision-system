@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useScan, StockResult } from "@/lib/ScanContext";
 
 interface Profile {
   id: number;
@@ -14,28 +15,6 @@ interface Profile {
   index_return: number;
   opex: number;
   alpha_target: number;
-}
-
-interface StockResult {
-  ticker: string;
-  final_decision: string | null;
-  composite_score: number | null;
-  forensic_score: number | null;
-  macro_score: number | null;
-  asymmetry_score: number | null;
-  confidence: number | null;
-  expected_return: number | null;
-  hurdle_rate: number | null;
-  excess_return: number | null;
-  clears_hurdle: boolean | null;
-  decision_summary: string | null;
-}
-
-interface ScanResult {
-  profile: { name: string; investment_period: string; hurdle_rate: number };
-  total_scanned: number;
-  total_passing: number;
-  results: StockResult[];
 }
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -81,20 +60,21 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { scans, startScan } = useScan();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
-  const [scanning, setScanning] = useState<number | null>(null);
-  const [scanResults, setScanResults] = useState<Record<number, ScanResult>>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function fetchProfiles() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.replace("/login"); return; }
     setUserEmail(session.user.email ?? null);
     try {
-      const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
+      const res = await fetch("/api/profile", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
       const json = await res.json();
       setProfiles(json.profiles ?? []);
     } catch { /* no profiles */ }
@@ -104,25 +84,6 @@ export default function Home() {
   useEffect(() => {
     fetchProfiles();
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleScan(profileId: number) {
-    setScanning(profileId);
-    setError(null);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.replace("/login"); return; }
-    try {
-      const res = await fetch(`/api/scan?profile_id=${profileId}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Scan failed");
-      setScanResults((prev) => ({ ...prev, [profileId]: data }));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Scan failed");
-    } finally {
-      setScanning(null);
-    }
-  }
 
   if (authLoading) {
     return (
@@ -156,11 +117,6 @@ export default function Home() {
           <p className="mt-1.5 text-[17px] text-[#6e6e73]">Multi-agent AI — Forensic · Macro · Asymmetry · Decision</p>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="rounded-2xl bg-red-50 border border-red-200 px-5 py-4 text-[14px] text-red-600 mb-6">{error}</div>
-        )}
-
         {/* No profiles */}
         {profiles.length === 0 ? (
           <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-10 text-center">
@@ -175,8 +131,9 @@ export default function Home() {
           <div className="space-y-8">
             {profiles.map((profile) => {
               const hurdle = profile.inflation + profile.borrowing + profile.index_return + profile.opex + profile.alpha_target;
-              const result = scanResults[profile.id];
-              const isScanning = scanning === profile.id;
+              const scan = scans[profile.id];
+              const isScanning = scan?.status === "running";
+              const anyScanRunning = Object.values(scans).some((s) => s.status === "running");
 
               return (
                 <div key={profile.id}>
@@ -211,7 +168,9 @@ export default function Home() {
                             className="px-4 py-2 rounded-xl text-[13px] font-medium text-[#0071e3] bg-[#f0f6ff] hover:bg-[#e0efff] transition-colors">
                             Edit
                           </Link>
-                          <button onClick={() => handleScan(profile.id)} disabled={isScanning || scanning !== null}
+                          <button
+                            onClick={() => startScan(profile.id, profile.name)}
+                            disabled={isScanning || anyScanRunning}
                             className="px-4 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                             style={{ background: "#0071e3" }}>
                             {isScanning ? "Scanning…" : "Run Scan"}
@@ -219,24 +178,33 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Scanning progress indicator */}
                     {isScanning && (
                       <p className="mt-4 text-[12px] text-[#aeaeb2] animate-pulse text-center border-t border-[#f0f0f0] pt-3">
-                        Forensic (Claude) → Macro (Gemini) → Asymmetry (DeepSeek) → Decision…
+                        Forensic (Claude) → Macro (Gemini) → Asymmetry (DeepSeek) → Decision… You can navigate freely.
+                      </p>
+                    )}
+
+                    {/* Failed state */}
+                    {scan?.status === "failed" && (
+                      <p className="mt-4 text-[12px] text-red-500 text-center border-t border-[#f0f0f0] pt-3">
+                        Scan failed. Please try again.
                       </p>
                     )}
                   </div>
 
-                  {/* Scan results for this profile */}
-                  {result && (
+                  {/* Scan results */}
+                  {scan?.status === "completed" && scan.results.length > 0 && (
                     <div className="pl-2">
                       <div className="flex items-baseline justify-between mb-3">
-                        <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Results — {result.profile.name}</h3>
+                        <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Results — {profile.name}</h3>
                         <span className="text-[12px] text-[#6e6e73]">
-                          {result.total_passing} of {result.total_scanned} cleared {result.profile.hurdle_rate.toFixed(1)}% hurdle
+                          {scan.total_passing} of {scan.total_scanned} cleared {scan.hurdle_rate.toFixed(1)}% hurdle
                         </span>
                       </div>
                       <div className="space-y-2">
-                        {result.results.map((stock) => (
+                        {scan.results.map((stock: StockResult) => (
                           <div key={stock.ticker} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm overflow-hidden">
                             <button
                               className="w-full text-left px-6 py-4 flex items-center justify-between hover:bg-[#fafafa] transition-colors"
