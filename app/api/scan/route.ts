@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
         opex: String(profile.opex),
         alpha_target: String(profile.alpha_target),
         investment_period: profile.investment_period,
+        profile_id: String(profile.id),
       });
 
       const res = await fetch(

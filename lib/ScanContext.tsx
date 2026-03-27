@@ -47,13 +47,27 @@ interface Toast {
   total_scanned: number;
 }
 
+export type AgentStatus = "pending" | "running" | "done";
+
+export interface AgentStatuses {
+  ticker?: string;
+  forensic: AgentStatus;
+  macro: AgentStatus;
+  asymmetry: AgentStatus;
+  decision: AgentStatus;
+}
+
+const DEFAULT_AGENT_STATUSES: AgentStatuses = {
+  forensic: "pending", macro: "pending", asymmetry: "pending", decision: "pending",
+};
+
 interface ScanContextValue {
   profiles: Profile[];
   userEmail: string | null;
   profilesLoaded: boolean;
   refreshProfiles: () => Promise<void>;
   scans: Record<number, ScanState>;
-  scanProgress: Record<number, number>;
+  agentStatuses: Record<number, AgentStatuses>;
   toasts: Toast[];
   startScan: (profileId: number, profileName: string) => void;
   dismissToast: (id: number) => void;
@@ -61,17 +75,15 @@ interface ScanContextValue {
 
 const ScanContext = createContext<ScanContextValue | null>(null);
 
-const PROGRESS_DURATION = 180000;
-const PROGRESS_TARGET = 92;
-
 export function ScanProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profilesLoaded, setProfilesLoaded] = useState(false);
   const [scans, setScans] = useState<Record<number, ScanState>>({});
-  const [scanProgress, setScanProgress] = useState<Record<number, number>>({});
+  const [agentStatuses, setAgentStatuses] = useState<Record<number, AgentStatuses>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshProfiles = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -88,27 +100,25 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     setProfilesLoaded(true);
   }, []);
 
-  // Load profiles once on mount
   useEffect(() => { refreshProfiles(); }, [refreshProfiles]);
 
-  // Global progress ticker for all running scans
-  useEffect(() => {
-    const id = setInterval(() => {
-      setScans((prev) => {
-        const running = Object.values(prev).filter((s) => s.status === "running");
-        if (running.length === 0) return prev;
-        setScanProgress((p) => {
-          const next = { ...p };
-          for (const s of running) {
-            const elapsed = Date.now() - s.startedAt;
-            next[s.profileId] = Math.min((elapsed / PROGRESS_DURATION) * PROGRESS_TARGET, PROGRESS_TARGET);
-          }
-          return next;
-        });
-        return prev;
-      });
-    }, 250);
-    return () => clearInterval(id);
+  // Poll agent status from backend while any scan is running
+  const startPolling = useCallback((profileId: number) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/scan/status?profile_id=${profileId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data.forensic === "string") {
+          setAgentStatuses((prev) => ({ ...prev, [profileId]: data as AgentStatuses }));
+        }
+      } catch { /* ignore */ }
+    }, 1500);
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
 
   const startScan = useCallback(async (profileId: number, profileName: string) => {
@@ -120,7 +130,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
         startedAt: Date.now(),
       },
     }));
-    setScanProgress((p) => ({ ...p, [profileId]: 0 }));
+    setAgentStatuses((prev) => ({ ...prev, [profileId]: { ...DEFAULT_AGENT_STATUSES } }));
+    startPolling(profileId);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -133,6 +144,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Scan failed");
 
+      stopPolling();
       setScans((prev) => ({
         ...prev,
         [profileId]: {
@@ -141,26 +153,29 @@ export function ScanProvider({ children }: { children: ReactNode }) {
           total_passing: data.total_passing, hurdle_rate: data.profile.hurdle_rate,
         },
       }));
-      setScanProgress((p) => ({ ...p, [profileId]: 100 }));
+      setAgentStatuses((prev) => ({
+        ...prev,
+        [profileId]: { forensic: "done", macro: "done", asymmetry: "done", decision: "done" },
+      }));
 
       const id = ++toastId.current;
       setToasts((prev) => [...prev, { id, profileName, total_passing: data.total_passing, total_scanned: data.total_scanned }]);
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 8000);
     } catch {
+      stopPolling();
       setScans((prev) => ({
         ...prev,
         [profileId]: { ...prev[profileId], status: "failed" },
       }));
-      setScanProgress((p) => ({ ...p, [profileId]: 0 }));
     }
-  }, []);
+  }, [startPolling, stopPolling]);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   return (
-    <ScanContext.Provider value={{ profiles, userEmail, profilesLoaded, refreshProfiles, scans, scanProgress, toasts, startScan, dismissToast }}>
+    <ScanContext.Provider value={{ profiles, userEmail, profilesLoaded, refreshProfiles, scans, agentStatuses, toasts, startScan, dismissToast }}>
       {children}
     </ScanContext.Provider>
   );

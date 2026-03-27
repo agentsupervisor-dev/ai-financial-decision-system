@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
-import os, json, tempfile
+import os, json, tempfile, concurrent.futures
 
 # If GOOGLE_APPLICATION_CREDENTIALS contains JSON content (not a file path),
 # write it to a temp file so the Google SDK can read it.
@@ -15,7 +15,10 @@ if _gac.strip().startswith("{"):
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from graph import graph
+from agents.forensic_agent import forensic_agent
+from agents.macro_agent import macro_agent
+from agents.asymmetry_agent import asymmetry_agent
+from agents.decision_agent import decision_agent
 
 app = FastAPI(title="Financial Decision Machine")
 
@@ -29,6 +32,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# In-memory scan status: profile_id -> agent status dict
+scan_status: dict = {}
+
+
+def _run_agent(agent_fn, state, profile_id: str, agent_name: str):
+    """Run an agent and mark it done in scan_status on completion."""
+    result = agent_fn(state)
+    if profile_id in scan_status:
+        scan_status[profile_id][agent_name] = "done"
+    return result
+
+
+@app.get("/status/{profile_id}")
+def get_scan_status(profile_id: str):
+    return scan_status.get(profile_id, {})
+
 
 @app.get("/analyze/{ticker}")
 def analyze_stock(
@@ -39,7 +58,9 @@ def analyze_stock(
     opex:              float = Query(default=0.5),
     alpha_target:      float = Query(default=6.5),
     investment_period: str   = Query(default="3yr"),
+    profile_id:        str   = Query(default=""),
 ):
+    pid = profile_id or ticker
     hurdle_components = {
         "inflation":    inflation,
         "borrowing":    borrowing,
@@ -68,7 +89,41 @@ def analyze_stock(
         "decision_summary":  None,
     }
 
-    result = graph.invoke(state)
+    # Mark all three agents as running
+    scan_status[pid] = {
+        "ticker":    ticker.upper(),
+        "forensic":  "running",
+        "macro":     "running",
+        "asymmetry": "running",
+        "decision":  "pending",
+    }
+
+    # Run Forensic, Macro, Asymmetry in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        f_future = executor.submit(_run_agent, forensic_agent,   state, pid, "forensic")
+        m_future = executor.submit(_run_agent, macro_agent,      state, pid, "macro")
+        a_future = executor.submit(_run_agent, asymmetry_agent,  state, pid, "asymmetry")
+
+        f_result = f_future.result()
+        m_result = m_future.result()
+        a_result = a_future.result()
+
+    # Merge parallel results into a single state
+    merged = {
+        **state,
+        "forensic_score":   f_result.get("forensic_score"),
+        "forensic_report":  f_result.get("forensic_report"),
+        "macro_score":      m_result.get("macro_score"),
+        "macro_report":     m_result.get("macro_report"),
+        "asymmetry_score":  a_result.get("asymmetry_score"),
+        "asymmetry_report": a_result.get("asymmetry_report"),
+        "expected_return":  a_result.get("expected_return"),
+    }
+
+    # Run Decision sequentially after all three complete
+    scan_status[pid]["decision"] = "running"
+    result = decision_agent(merged)
+    scan_status[pid]["decision"] = "done"
 
     return {
         "ticker":            result["ticker"],
