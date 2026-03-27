@@ -26,15 +26,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const profileName = (name || "").trim();
 
   // Check for duplicate name (exclude current profile)
-  const { data: existing } = await supabase
+  const { data: existing, error: dupeError } = await supabase
     .from("profiles")
     .select("id")
     .eq("user_id", user.id)
-    .eq("name", profileName)
+    .ilike("name", profileName)
     .neq("id", id)
     .maybeSingle();
 
-  if (existing) {
+  if (!dupeError && existing) {
     return NextResponse.json({ error: "A profile with that name already exists." }, { status: 409 });
   }
 

@@ -48,14 +48,14 @@ export async function POST(req: NextRequest) {
   const profileName = (name || "My Portfolio").trim();
 
   // Check for duplicate name before inserting
-  const { data: existing } = await supabase
+  const { data: existing, error: dupeError } = await supabase
     .from("profiles")
     .select("id")
     .eq("user_id", user.id)
-    .eq("name", profileName)
+    .ilike("name", profileName)
     .maybeSingle();
 
-  if (existing) {
+  if (!dupeError && existing) {
     return NextResponse.json({ error: "A profile with that name already exists." }, { status: 409 });
   }
 
