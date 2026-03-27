@@ -2,6 +2,11 @@ import os
 import re
 from llm_clients import claude_model
 from supabase import create_client
+from prompt_store import get_instructions
+
+DEFAULT_INSTRUCTIONS = """You are an investment committee chair writing a rationale for a decision already made by the rule engine.
+
+Write a 2-3 sentence rationale explaining why this {decision} decision was reached. Reference the investment horizon where relevant (e.g. short-term needs higher conviction, long-term can ride out volatility). Be direct and factual."""
 
 
 def decision_agent(state):
@@ -29,12 +34,10 @@ def decision_agent(state):
     clears_hurdle = expected_return >= hurdle_rate
     excess_return = round(expected_return - hurdle_rate, 2)
 
-    # Horizon-adjusted composite threshold:
-    # Short-term needs higher quality bar (less time to recover from mistakes)
-    # Long-term can accept lower composite (more time for fundamentals to play out)
+    # Horizon-adjusted composite threshold
     composite_threshold = {"1yr": 65, "3yr": 55, "5yr": 48}.get(investment_period, 55)
 
-    # Rule-based decision (deterministic — Claude only writes the rationale)
+    # Rule-based decision (deterministic — the custom/default instructions only write the rationale)
     if composite >= composite_threshold and confidence >= 50 and clears_hurdle:
         final_decision = "BUY"
     elif composite < 45 or not clears_hurdle:
@@ -42,7 +45,12 @@ def decision_agent(state):
     else:
         final_decision = "HOLD"
 
-    prompt = f"""You are an investment committee chair writing a rationale for a decision already made by the rule engine.
+    custom = get_instructions("decision")
+    instructions = (custom or DEFAULT_INSTRUCTIONS).format(
+        ticker=ticker, decision=final_decision, horizon=horizon
+    )
+
+    prompt = f"""{instructions}
 
 TICKER: {ticker}
 INVESTMENT HORIZON: {horizon}
@@ -70,7 +78,6 @@ MACRO SUMMARY:
 ASYMMETRY SUMMARY:
 {(state.get("asymmetry_report") or "")[:600]}
 
-Write a 2-3 sentence rationale explaining why this {final_decision} decision was reached. Reference the investment horizon where relevant (e.g. short-term needs higher conviction, long-term can ride out volatility). Be direct and factual.
 End with exactly: DECISION: {final_decision}"""
 
     try:

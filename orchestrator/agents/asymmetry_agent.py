@@ -1,5 +1,17 @@
 import re
 from llm_clients import deepseek_model
+from prompt_store import get_instructions
+
+DEFAULT_INSTRUCTIONS = """You are a hedge fund analyst specializing in asymmetric risk/reward opportunities.
+
+Analyze {ticker} for:
+1. Mispricing signals (vs. intrinsic value, sector peers, historical multiples)
+2. Hidden catalysts (product launches, regulatory approvals, M&A potential, spin-offs)
+3. Downside protection (balance sheet strength, cash flows, floor valuation)
+4. Upside/downside asymmetry ratio
+
+The investor's hurdle rate is {hurdle}% per year and investment horizon is {horizon}.
+Estimate the realistic expected annual return if the thesis plays out over {horizon}."""
 
 
 def asymmetry_agent(state):
@@ -10,16 +22,12 @@ def asymmetry_agent(state):
     period_map = {"1yr": "1 year", "3yr": "3 years", "5yr": "5+ years"}
     horizon = period_map.get(investment_period, "3 years")
 
-    prompt = f"""You are a hedge fund analyst specializing in asymmetric risk/reward opportunities.
+    custom = get_instructions("asymmetry")
+    instructions = (custom or DEFAULT_INSTRUCTIONS).format(
+        ticker=ticker, horizon=horizon, hurdle=hurdle
+    )
 
-Analyze {ticker} for:
-1. Mispricing signals (vs. intrinsic value, sector peers, historical multiples)
-2. Hidden catalysts (product launches, regulatory approvals, M&A potential, spin-offs)
-3. Downside protection (balance sheet strength, cash flows, floor valuation)
-4. Upside/downside asymmetry ratio
-
-The investor's hurdle rate is {hurdle}% per year and investment horizon is {horizon}.
-Estimate the realistic expected annual return if the thesis plays out over {horizon}.
+    prompt = f"""{instructions}
 
 End your response with exactly these two lines:
 ASYMMETRY_SCORE: [number 0-100, where 100 = extreme asymmetric upside]

@@ -64,6 +64,7 @@ const DEFAULT_AGENT_STATUSES: AgentStatuses = {
 interface ScanContextValue {
   profiles: Profile[];
   userEmail: string | null;
+  isSuperuser: boolean;
   profilesLoaded: boolean;
   refreshProfiles: () => Promise<void>;
   scans: Record<number, ScanState>;
@@ -78,6 +79,7 @@ const ScanContext = createContext<ScanContextValue | null>(null);
 export function ScanProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isSuperuser, setIsSuperuser] = useState(false);
   const [profilesLoaded, setProfilesLoaded] = useState(false);
   const [scans, setScans] = useState<Record<number, ScanState>>({});
   const [agentStatuses, setAgentStatuses] = useState<Record<number, AgentStatuses>>({});
@@ -88,7 +90,9 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const refreshProfiles = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setProfilesLoaded(true); return; }
-    setUserEmail(session.user.email ?? null);
+    const email = session.user.email ?? null;
+    setUserEmail(email);
+    setIsSuperuser(!!email && email === process.env.NEXT_PUBLIC_SUPERUSER_EMAIL);
     try {
       const res = await fetch("/api/profile", {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -183,7 +187,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ScanContext.Provider value={{ profiles, userEmail, profilesLoaded, refreshProfiles, scans, agentStatuses, toasts, startScan, dismissToast }}>
+    <ScanContext.Provider value={{ profiles, userEmail, isSuperuser, profilesLoaded, refreshProfiles, scans, agentStatuses, toasts, startScan, dismissToast }}>
       {children}
     </ScanContext.Provider>
   );

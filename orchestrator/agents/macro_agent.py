@@ -1,16 +1,8 @@
 import re
 from llm_clients import gemini_model
+from prompt_store import get_instructions
 
-
-def macro_agent(state):
-    ticker = state["ticker"]
-    hurdle = state.get("hurdle_rate", 40.0)
-    investment_period = state.get("investment_period", "3yr")
-
-    period_map = {"1yr": "1 year", "3yr": "3 years", "5yr": "5+ years"}
-    horizon = period_map.get(investment_period, "3 years")
-
-    prompt = f"""You are a macro strategist and CIO. Analyze the macroeconomic environment affecting {ticker}.
+DEFAULT_INSTRUCTIONS = """You are a macro strategist and CIO. Analyze the macroeconomic environment affecting {ticker}.
 
 Investment horizon: {horizon}
 
@@ -22,7 +14,23 @@ Consider:
 - Fed policy and liquidity conditions
 
 The investor requires a {hurdle}% annual return to clear their hurdle rate over {horizon}.
-Given macro conditions, assess whether the backdrop supports or hinders achieving this return.
+Given macro conditions, assess whether the backdrop supports or hinders achieving this return."""
+
+
+def macro_agent(state):
+    ticker = state["ticker"]
+    hurdle = state.get("hurdle_rate", 40.0)
+    investment_period = state.get("investment_period", "3yr")
+
+    period_map = {"1yr": "1 year", "3yr": "3 years", "5yr": "5+ years"}
+    horizon = period_map.get(investment_period, "3 years")
+
+    custom = get_instructions("macro")
+    instructions = (custom or DEFAULT_INSTRUCTIONS).format(
+        ticker=ticker, horizon=horizon, hurdle=hurdle
+    )
+
+    prompt = f"""{instructions}
 
 End your response with exactly this line:
 MACRO_SCORE: [number 0-100, where 100 = extremely favorable macro backdrop]"""

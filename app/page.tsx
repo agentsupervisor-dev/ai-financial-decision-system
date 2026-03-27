@@ -49,7 +49,7 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 
 export default function Home() {
   const router = useRouter();
-  const { profiles, userEmail, profilesLoaded, scans, startScan } = useScan();
+  const { profiles, userEmail, isSuperuser, profilesLoaded, scans, startScan } = useScan();
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
   // Auth guard — redirect to login if no session once profiles have been checked
@@ -76,6 +76,9 @@ export default function Home() {
           <span className="text-[15px] font-semibold text-[#1d1d1f]">Finance Decision Machine</span>
           <div className="flex items-center gap-5">
             <span className="text-[13px] text-[#6e6e73] hidden sm:block">{userEmail}</span>
+            {isSuperuser && (
+              <Link href="/admin/prompts" className="text-[13px] text-[#a3730a] hover:underline font-medium">Admin</Link>
+            )}
             <Link href="/profile" className="text-[13px] text-[#0071e3] hover:underline">Profiles</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
               className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">

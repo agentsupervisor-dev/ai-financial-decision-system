@@ -2,8 +2,17 @@ import os
 import re
 import requests
 from llm_clients import claude_model
+from prompt_store import get_instructions
 
 FMP_API_KEY = os.getenv("FMP_API_KEY")
+
+DEFAULT_INSTRUCTIONS = """You are a forensic financial analyst. Analyze {ticker} for business moat durability.
+
+Analyze:
+1. Moat durability (pricing power, switching costs, network effects)
+2. Margin trends (compression or expansion)
+3. Structural risks (competitive threats, regulatory, disruption)
+4. Management quality signals from the transcript"""
 
 
 def _fetch_fmp(path: str):
@@ -34,7 +43,10 @@ def forensic_agent(state):
     except Exception:
         transcript_text = "Not available"
 
-    prompt = f"""You are a forensic financial analyst. Analyze {ticker} for business moat durability.
+    custom = get_instructions("forensic")
+    instructions = (custom or DEFAULT_INSTRUCTIONS).format(ticker=ticker)
+
+    prompt = f"""{instructions}
 
 Company: {company.get('companyName', ticker)} | Sector: {company.get('sector', 'Unknown')}
 Market Cap: {company.get('marketCap', 'Unknown')} | Description: {company.get('description', '')[:500]}
@@ -44,12 +56,6 @@ Recent Income Statements:
 
 Latest Earnings Call Transcript (excerpt):
 {transcript_text}
-
-Analyze:
-1. Moat durability (pricing power, switching costs, network effects)
-2. Margin trends (compression or expansion)
-3. Structural risks (competitive threats, regulatory, disruption)
-4. Management quality signals from the transcript
 
 End your response with exactly this line:
 FORENSIC_SCORE: [number 0-100]"""
