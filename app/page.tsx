@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useScan, StockResult } from "@/lib/ScanContext";
@@ -38,6 +38,74 @@ function DecisionBadge({ decision }: { decision: string | null }) {
       style={{ background: c.bg, color: c.color }}>
       {c.icon} {decision}
     </span>
+  );
+}
+
+const SCAN_STAGES = [
+  { label: "Forensic", sub: "Claude" },
+  { label: "Macro", sub: "Gemini" },
+  { label: "Asymmetry", sub: "DeepSeek" },
+  { label: "Decision", sub: "Claude" },
+];
+
+function ScanProgressBar({ isScanning }: { isScanning: boolean }) {
+  const [progress, setProgress] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (!isScanning) { setProgress(0); return; }
+    setProgress(0);
+    const TARGET = 92;
+    const TICK = 250;
+    const step = (TARGET / 180000) * TICK; // reach 92% over 3 min
+    timerRef.current = setInterval(() => {
+      setProgress((p) => {
+        if (p >= TARGET) { clearInterval(timerRef.current!); return TARGET; }
+        return Math.min(p + step, TARGET);
+      });
+    }, TICK);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [isScanning]);
+
+  return (
+    <div className="mt-4 border-t border-[#f0f0f0] pt-4">
+      <div className="relative rounded-xl overflow-hidden h-14 select-none">
+        {/* Track */}
+        <div className="absolute inset-0 bg-[#f0f0f0]" />
+        {/* Green fill */}
+        <div className="absolute inset-y-0 left-0 bg-[#34c759]"
+          style={{ width: `${progress}%`, transition: "width 0.25s linear" }} />
+        {/* Dividers */}
+        <div className="absolute inset-0 flex pointer-events-none">
+          {SCAN_STAGES.map((_, i) => (
+            <div key={i} className={`flex-1 ${i < SCAN_STAGES.length - 1 ? "border-r border-white/30" : ""}`} />
+          ))}
+        </div>
+        {/* Gray text layer */}
+        <div className="absolute inset-0 flex">
+          {SCAN_STAGES.map((s) => (
+            <div key={s.label} className="flex-1 flex flex-col items-center justify-center gap-0.5">
+              <span className="text-[12px] font-semibold text-[#3a3a3c]">{s.label}</span>
+              <span className="text-[10px] text-[#aeaeb2]">{s.sub}</span>
+            </div>
+          ))}
+        </div>
+        {/* White text layer clipped to green area */}
+        <div className="absolute inset-0 flex"
+          style={{ clipPath: `inset(0 ${100 - progress}% 0 0 round 12px)` }}>
+          {SCAN_STAGES.map((s) => (
+            <div key={s.label} className="flex-1 flex flex-col items-center justify-center gap-0.5">
+              <span className="text-[12px] font-semibold text-white">{s.label}</span>
+              <span className="text-[10px] text-white/70">{s.sub}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="text-[11px] text-[#aeaeb2] text-center mt-2">
+        You can navigate freely while scanning…
+      </p>
+    </div>
   );
 }
 
@@ -179,11 +247,7 @@ export default function Home() {
                     </div>
 
                     {/* Scanning progress indicator */}
-                    {isScanning && (
-                      <p className="mt-4 text-[12px] text-[#aeaeb2] animate-pulse text-center border-t border-[#f0f0f0] pt-3">
-                        Forensic (Claude) → Macro (Gemini) → Asymmetry (DeepSeek) → Decision… You can navigate freely.
-                      </p>
-                    )}
+                    {isScanning && <ScanProgressBar isScanning={isScanning} />}
 
                     {/* Failed state */}
                     {scan?.status === "failed" && (
