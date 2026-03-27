@@ -45,11 +45,25 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { name, investment_period, inflation, borrowing, index_return, opex, alpha_target } = body;
 
+  const profileName = (name || "My Portfolio").trim();
+
+  // Check for duplicate name before inserting
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("name", profileName)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json({ error: "A profile with that name already exists." }, { status: 409 });
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .insert({
       user_id: user.id,
-      name: name || "My Portfolio",
+      name: profileName,
       investment_period,
       inflation,
       borrowing,
@@ -61,12 +75,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    const msg = String(error.message ?? "");
-    const isDuplicate = String(error.code) === "23505" || msg.toLowerCase().includes("duplicate key") || msg.toLowerCase().includes("unique constraint");
-    return NextResponse.json(
-      { error: isDuplicate ? "A profile with that name already exists." : msg },
-      { status: isDuplicate ? 409 : 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ profile: data });

@@ -23,21 +23,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json();
   const { name, investment_period, inflation, borrowing, index_return, opex, alpha_target } = body;
 
+  const profileName = (name || "").trim();
+
+  // Check for duplicate name (exclude current profile)
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("name", profileName)
+    .neq("id", id)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json({ error: "A profile with that name already exists." }, { status: 409 });
+  }
+
   const { data, error } = await supabase
     .from("profiles")
-    .update({ name, investment_period, inflation, borrowing, index_return, opex, alpha_target })
+    .update({ name: profileName, investment_period, inflation, borrowing, index_return, opex, alpha_target })
     .eq("id", id)
     .eq("user_id", user.id)
     .select()
     .single();
 
   if (error) {
-    const msg = String(error.message ?? "");
-    const isDuplicate = String(error.code) === "23505" || msg.toLowerCase().includes("duplicate key") || msg.toLowerCase().includes("unique constraint");
-    return NextResponse.json(
-      { error: isDuplicate ? "A profile with that name already exists." : msg },
-      { status: isDuplicate ? 409 : 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ profile: data });
