@@ -57,6 +57,7 @@ export default function ProfilesPage() {
     });
     setProfiles((prev) => prev.filter((p) => p.id !== id));
     setDeleting(null);
+    router.refresh();
   }
 
   if (loading) {

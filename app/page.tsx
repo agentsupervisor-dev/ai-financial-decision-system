@@ -94,7 +94,7 @@ export default function Home() {
       if (!session) { router.replace("/login"); return; }
       setUserEmail(session.user.email ?? null);
       try {
-        const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
         const json = await res.json();
         setProfiles(json.profiles ?? []);
       } catch { /* no profiles */ }
