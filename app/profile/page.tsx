@@ -72,7 +72,7 @@ export default function ProfilesPage() {
       {/* Nav */}
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
-          <button onClick={() => router.push(`/?t=${Date.now()}`)} className="text-[#0071e3] text-[13px] hover:underline">← Dashboard</button>
+          <button onClick={() => { window.location.href = "/"; }} className="text-[#0071e3] text-[13px] hover:underline">← Dashboard</button>
           <span className="text-[13px] text-[#6e6e73]">{userEmail}</span>
         </div>
       </nav>
