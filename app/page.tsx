@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useScan, StockResult } from "@/lib/ScanContext";
 
@@ -59,7 +59,6 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 
 export default function Home() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { scans, startScan } = useScan();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -83,7 +82,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchProfiles();
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (authLoading) {
     return (
