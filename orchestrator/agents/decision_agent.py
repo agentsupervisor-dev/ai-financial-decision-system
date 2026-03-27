@@ -26,10 +26,18 @@ def decision_agent(state):
     clears_hurdle = expected_return >= hurdle_rate
     excess_return = round(expected_return - hurdle_rate, 2)
 
-    prompt = f"""You are an investment committee chair making a final, unbiased decision.
-You have NO memory of prior trades and NO awareness of current P&L.
+    # Rule-based decision (deterministic — Claude only writes the rationale)
+    if composite >= 65 and confidence >= 50 and clears_hurdle:
+        final_decision = "BUY"
+    elif composite < 45 or not clears_hurdle:
+        final_decision = "REJECT"
+    else:
+        final_decision = "HOLD"
+
+    prompt = f"""You are an investment committee chair writing a rationale for a decision already made by the rule engine.
 
 TICKER: {ticker}
+DECISION: {final_decision}
 
 AGENT SCORES:
 - Forensic (business quality): {forensic_score}/100
@@ -53,23 +61,14 @@ MACRO SUMMARY:
 ASYMMETRY SUMMARY:
 {(state.get("asymmetry_report") or "")[:600]}
 
-Decision rules:
-- BUY: composite >= 65, confidence >= 50, clears hurdle = YES
-- REJECT: composite < 45 OR clears hurdle = NO
-- HOLD: everything else
-
-State your decision with a 2-3 sentence rationale. Be direct and bias-free.
-End with exactly this line:
-DECISION: [BUY / HOLD / REJECT]"""
+Write a 2-3 sentence rationale explaining why this {final_decision} decision was reached based on the scores and hurdle math above. Be direct and factual.
+End with exactly: DECISION: {final_decision}"""
 
     try:
         response = claude_model.invoke(prompt)
         summary = response.content
     except Exception as e:
-        summary = f"Decision failed: {str(e)}\nDECISION: HOLD"
-
-    match = re.search(r"DECISION:\s*(BUY|HOLD|REJECT)", summary, re.IGNORECASE)
-    final_decision = match.group(1).upper() if match else "HOLD"
+        summary = f"Decision failed: {str(e)}\nDECISION: {final_decision}"
 
     # Write to Supabase
     supabase_url = os.getenv("SUPABASE_URL")
