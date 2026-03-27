@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useScan } from "@/lib/ScanContext";
 
 type InvestmentPeriod = "1yr" | "3yr" | "5yr";
 
@@ -26,6 +27,7 @@ const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display'
 
 export default function NewProfilePage() {
   const router = useRouter();
+  const { refreshProfiles } = useScan();
   const [form, setForm] = useState<ProfileForm>({
     name: "", investment_period: "3yr",
     inflation: 3.5, borrowing: 7.5, index_return: 12.0, opex: 0.5, alpha_target: 6.5,
@@ -47,7 +49,7 @@ export default function NewProfilePage() {
       body: JSON.stringify(form),
     });
     const json = await res.json();
-    if (!res.ok) { setError(json.error || "Failed to create profile"); } else { router.push("/"); }
+    if (!res.ok) { setError(json.error || "Failed to create profile"); } else { await refreshProfiles(); router.push("/"); }
     setSaving(false);
   }
 

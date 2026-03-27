@@ -6,17 +6,6 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useScan, StockResult } from "@/lib/ScanContext";
 
-interface Profile {
-  id: number;
-  name: string;
-  investment_period: string;
-  inflation: number;
-  borrowing: number;
-  index_return: number;
-  opex: number;
-  alpha_target: number;
-}
-
 const PERIOD_LABELS: Record<string, string> = {
   "1yr": "Short-term · 1 yr",
   "3yr": "Medium-term · 3 yrs",
@@ -52,18 +41,14 @@ function ScanProgressBar({ progress }: { progress: number }) {
   return (
     <div className="mt-4 border-t border-[#f0f0f0] pt-4">
       <div className="relative rounded-xl overflow-hidden h-14 select-none">
-        {/* Track */}
         <div className="absolute inset-0 bg-[#f0f0f0]" />
-        {/* Green fill */}
         <div className="absolute inset-y-0 left-0 bg-[#34c759]"
           style={{ width: `${progress}%`, transition: "width 0.25s linear" }} />
-        {/* Dividers */}
         <div className="absolute inset-0 flex pointer-events-none">
           {SCAN_STAGES.map((_, i) => (
             <div key={i} className={`flex-1 ${i < SCAN_STAGES.length - 1 ? "border-r border-white/30" : ""}`} />
           ))}
         </div>
-        {/* Gray text layer */}
         <div className="absolute inset-0 flex">
           {SCAN_STAGES.map((s) => (
             <div key={s.label} className="flex-1 flex flex-col items-center justify-center gap-0.5">
@@ -72,7 +57,6 @@ function ScanProgressBar({ progress }: { progress: number }) {
             </div>
           ))}
         </div>
-        {/* White text layer clipped to green area */}
         <div className="absolute inset-0 flex"
           style={{ clipPath: `inset(0 ${100 - progress}% 0 0 round 12px)` }}>
           {SCAN_STAGES.map((s) => (
@@ -108,32 +92,18 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 
 export default function Home() {
   const router = useRouter();
-  const { scans, scanProgress, startScan } = useScan();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { profiles, userEmail, profilesLoaded, scans, scanProgress, startScan } = useScan();
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
-  async function fetchProfiles() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.replace("/login"); return; }
-    setUserEmail(session.user.email ?? null);
-    try {
-      const res = await fetch("/api/profile", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        cache: "no-store",
-      });
-      const json = await res.json();
-      setProfiles(json.profiles ?? []);
-    } catch { /* no profiles */ }
-    setAuthLoading(false);
-  }
-
+  // Auth guard — redirect to login if no session once profiles have been checked
   useEffect(() => {
-    fetchProfiles();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!profilesLoaded) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) router.replace("/login");
+    });
+  }, [profilesLoaded, router]);
 
-  if (authLoading) {
+  if (!profilesLoaded) {
     return (
       <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center" style={APPLE}>
         <p className="text-[#6e6e73] text-[15px]">Loading…</p>

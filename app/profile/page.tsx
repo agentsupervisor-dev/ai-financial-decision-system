@@ -1,19 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-
-interface Profile {
-  id: number;
-  name: string;
-  investment_period: string;
-  inflation: number;
-  borrowing: number;
-  index_return: number;
-  opex: number;
-  alpha_target: number;
-}
+import { useScan } from "@/lib/ScanContext";
 
 const PERIOD_LABELS: Record<string, string> = {
   "1yr": "Short-term · 1 year",
@@ -25,26 +15,8 @@ const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display'
 
 export default function ProfilesPage() {
   const router = useRouter();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { profiles, userEmail, refreshProfiles } = useScan();
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace("/login"); return; }
-      setUserEmail(session.user.email ?? null);
-
-      const res = await fetch("/api/profile", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const json = await res.json();
-      setProfiles(json.profiles ?? []);
-      setLoading(false);
-    }
-    load();
-  }, [router]);
 
   async function handleDelete(id: number) {
     if (!confirm("Delete this profile?")) return;
@@ -55,16 +27,8 @@ export default function ProfilesPage() {
       method: "DELETE",
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    setProfiles((prev) => prev.filter((p) => p.id !== id));
+    await refreshProfiles();
     setDeleting(null);
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center" style={APPLE}>
-        <p className="text-[#6e6e73] text-[15px]">Loading…</p>
-      </div>
-    );
   }
 
   return (
@@ -72,7 +36,7 @@ export default function ProfilesPage() {
       {/* Nav */}
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
-          <button onClick={() => { window.location.href = "/"; }} className="text-[#0071e3] text-[13px] hover:underline">← Dashboard</button>
+          <button onClick={() => router.push("/")} className="text-[#0071e3] text-[13px] hover:underline">← Dashboard</button>
           <span className="text-[13px] text-[#6e6e73]">{userEmail}</span>
         </div>
       </nav>
