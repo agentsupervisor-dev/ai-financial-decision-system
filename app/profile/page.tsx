@@ -17,10 +17,11 @@ export default function ProfilesPage() {
   const router = useRouter();
   const { profiles, userEmail, refreshProfiles } = useScan();
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this profile?")) return;
     setDeleting(id);
+    setConfirmId(null);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     await fetch(`/api/profile/${id}`, {
@@ -73,45 +74,67 @@ export default function ProfilesPage() {
           <div className="space-y-3">
             {profiles.map((p) => {
               const hurdle = p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target;
+              const isConfirming = confirmId === p.id;
               return (
-                <div key={p.id} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[18px] font-semibold text-[#1d1d1f]">{p.name}</h2>
-                    <p className="text-[13px] text-[#6e6e73] mt-0.5">{PERIOD_LABELS[p.investment_period]}</p>
-                    <div className="flex gap-4 mt-3 flex-wrap">
-                      {[
-                        ["Inflation", p.inflation],
-                        ["Borrowing", p.borrowing],
-                        ["Index", p.index_return],
-                        ["OpEx", p.opex],
-                        ["Alpha", p.alpha_target],
-                      ].map(([label, val]) => (
-                        <div key={label as string} className="text-center">
-                          <p className="text-[10px] text-[#aeaeb2] uppercase tracking-wide">{label as string}</p>
-                          <p className="text-[13px] font-medium text-[#3a3a3c]">{(val as number).toFixed(1)}%</p>
-                        </div>
-                      ))}
+                <div key={p.id} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-[18px] font-semibold text-[#1d1d1f]">{p.name}</h2>
+                      <p className="text-[13px] text-[#6e6e73] mt-0.5">{PERIOD_LABELS[p.investment_period]}</p>
+                      <div className="flex gap-4 mt-3 flex-wrap">
+                        {[
+                          ["Inflation", p.inflation],
+                          ["Borrowing", p.borrowing],
+                          ["Index", p.index_return],
+                          ["OpEx", p.opex],
+                          ["Alpha", p.alpha_target],
+                        ].map(([label, val]) => (
+                          <div key={label as string} className="text-center">
+                            <p className="text-[10px] text-[#aeaeb2] uppercase tracking-wide">{label as string}</p>
+                            <p className="text-[13px] font-medium text-[#3a3a3c]">{(val as number).toFixed(1)}%</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-3 ml-6">
+                      <div className="text-right">
+                        <p className="text-[11px] text-[#aeaeb2]">Hurdle Rate</p>
+                        <p className="text-[22px] font-semibold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => router.push(`/profile/${p.id}`)}
+                          className="px-4 py-2 rounded-xl text-[13px] font-medium text-[#0071e3] bg-[#f0f6ff] hover:bg-[#e0efff] transition-colors">
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setConfirmId(p.id)}
+                          disabled={deleting === p.id}
+                          className="px-4 py-2 rounded-xl text-[13px] font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-40">
+                          {deleting === p.id ? "…" : "Delete"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-3 ml-6">
-                    <div className="text-right">
-                      <p className="text-[11px] text-[#aeaeb2]">Hurdle Rate</p>
-                      <p className="text-[22px] font-semibold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
+
+                  {/* Inline confirm — shown instead of window.confirm() for mobile compatibility */}
+                  {isConfirming && (
+                    <div className="mt-4 pt-4 border-t border-[#f0f0f0] flex items-center justify-between gap-3">
+                      <p className="text-[13px] text-[#3a3a3c]">Delete <span className="font-semibold">{p.name}</span>? This cannot be undone.</p>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => setConfirmId(null)}
+                          className="px-4 py-2 rounded-xl text-[13px] font-medium text-[#6e6e73] bg-[#f5f5f7] hover:bg-[#e5e5ea] transition-colors">
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p.id)}
+                          className="px-4 py-2 rounded-xl text-[13px] font-medium text-white bg-red-500 hover:bg-red-600 transition-colors">
+                          Yes, Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => router.push(`/profile/${p.id}`)}
-                        className="px-4 py-2 rounded-xl text-[13px] font-medium text-[#0071e3] bg-[#f0f6ff] hover:bg-[#e0efff] transition-colors">
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(p.id)}
-                        disabled={deleting === p.id}
-                        className="px-4 py-2 rounded-xl text-[13px] font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-40">
-                        {deleting === p.id ? "…" : "Delete"}
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
