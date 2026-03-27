@@ -47,7 +47,7 @@ export default function NewProfilePage() {
       body: JSON.stringify(form),
     });
     const json = await res.json();
-    if (!res.ok) { setError(json.error || "Failed to create profile"); } else { router.push("/profile"); }
+    if (!res.ok) { setError(json.error || "Failed to create profile"); } else { router.push("/"); }
     setSaving(false);
   }
 
