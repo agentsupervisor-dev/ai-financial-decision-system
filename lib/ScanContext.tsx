@@ -92,7 +92,9 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     if (!session) { setProfilesLoaded(true); return; }
     const email = session.user.email ?? null;
     setUserEmail(email);
-    setIsSuperuser(!!email && email === process.env.NEXT_PUBLIC_SUPERUSER_EMAIL);
+    const superuserEmails = (process.env.NEXT_PUBLIC_SUPERUSER_EMAIL ?? "")
+      .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    setIsSuperuser(!!email && superuserEmails.includes(email.toLowerCase()));
     try {
       const res = await fetch("/api/profile", {
         headers: { Authorization: `Bearer ${session.access_token}` },

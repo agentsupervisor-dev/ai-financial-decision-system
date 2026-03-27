@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPERUSER_EMAIL = process.env.SUPERUSER_EMAIL ?? "";
+const SUPERUSER_EMAILS = (process.env.SUPERUSER_EMAIL ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 function serviceSupabase() {
   return createClient(
@@ -20,7 +23,7 @@ async function assertSuperuser(req: NextRequest) {
   );
   const { data: { user }, error } = await anon.auth.getUser();
   if (error || !user) return null;
-  if (!SUPERUSER_EMAIL || user.email !== SUPERUSER_EMAIL) return null;
+  if (!SUPERUSER_EMAILS.length || !SUPERUSER_EMAILS.includes((user.email ?? "").toLowerCase())) return null;
   return user;
 }
 
