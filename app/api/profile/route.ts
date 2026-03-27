@@ -61,9 +61,11 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    const isDuplicate = error.message?.includes("profiles_user_id_name_unique") || error.code === "23505";
+    const msg = error.message ?? "";
+    const details = (error as { details?: string }).details ?? "";
+    const isDuplicate = error.code === "23505" || msg.includes("unique") || details.includes("unique");
     return NextResponse.json(
-      { error: isDuplicate ? "A profile with that name already exists." : error.message },
+      { error: isDuplicate ? "A profile with that name already exists." : msg },
       { status: isDuplicate ? 409 : 500 }
     );
   }
