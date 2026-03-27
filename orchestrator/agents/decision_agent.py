@@ -7,6 +7,9 @@ from supabase import create_client
 def decision_agent(state):
     ticker = state["ticker"]
     hurdle_rate = state.get("hurdle_rate", 40.0)
+    investment_period = state.get("investment_period", "3yr")
+    period_map = {"1yr": "1 year (short-term)", "3yr": "3 years (medium-term)", "5yr": "5+ years (long-term)"}
+    horizon = period_map.get(investment_period, "3 years (medium-term)")
 
     forensic_score = state.get("forensic_score") or 50.0
     macro_score = state.get("macro_score") or 50.0
@@ -26,8 +29,13 @@ def decision_agent(state):
     clears_hurdle = expected_return >= hurdle_rate
     excess_return = round(expected_return - hurdle_rate, 2)
 
+    # Horizon-adjusted composite threshold:
+    # Short-term needs higher quality bar (less time to recover from mistakes)
+    # Long-term can accept lower composite (more time for fundamentals to play out)
+    composite_threshold = {"1yr": 65, "3yr": 55, "5yr": 48}.get(investment_period, 55)
+
     # Rule-based decision (deterministic — Claude only writes the rationale)
-    if composite >= 55 and confidence >= 50 and clears_hurdle:
+    if composite >= composite_threshold and confidence >= 50 and clears_hurdle:
         final_decision = "BUY"
     elif composite < 45 or not clears_hurdle:
         final_decision = "REJECT"
@@ -37,13 +45,14 @@ def decision_agent(state):
     prompt = f"""You are an investment committee chair writing a rationale for a decision already made by the rule engine.
 
 TICKER: {ticker}
+INVESTMENT HORIZON: {horizon}
 DECISION: {final_decision}
 
 AGENT SCORES:
 - Forensic (business quality): {forensic_score}/100
 - Macro (economic backdrop): {macro_score}/100
 - Asymmetry (risk/reward): {asymmetry_score}/100
-- Composite Score: {composite}/100
+- Composite Score: {composite}/100 (BUY threshold for this horizon: {composite_threshold})
 - Triangulation Confidence: {confidence}%
 
 HURDLE MATH:
@@ -61,7 +70,7 @@ MACRO SUMMARY:
 ASYMMETRY SUMMARY:
 {(state.get("asymmetry_report") or "")[:600]}
 
-Write a 2-3 sentence rationale explaining why this {final_decision} decision was reached based on the scores and hurdle math above. Be direct and factual.
+Write a 2-3 sentence rationale explaining why this {final_decision} decision was reached. Reference the investment horizon where relevant (e.g. short-term needs higher conviction, long-term can ride out volatility). Be direct and factual.
 End with exactly: DECISION: {final_decision}"""
 
     try:
