@@ -41,7 +41,7 @@ export default function ProfilesPage() {
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12 pb-32">
+      <div className="max-w-2xl mx-auto px-6 py-12 pb-24">
         {/* Header */}
         <div className="flex items-end justify-between mb-8">
           <div>

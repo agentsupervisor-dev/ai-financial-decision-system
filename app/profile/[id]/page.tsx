@@ -96,7 +96,7 @@ export default function EditProfilePage() {
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12 pb-32">
+      <div className="max-w-2xl mx-auto px-6 py-12 pb-24">
         <h1 className="text-[32px] font-semibold text-[#1d1d1f] tracking-tight mb-8">Edit Profile</h1>
 
         {/* Profile Name */}

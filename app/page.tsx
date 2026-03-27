@@ -85,7 +85,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-12 pb-32">
+      <div className="max-w-3xl mx-auto px-6 py-12 pb-24">
         {/* Hero */}
         <div className="mb-10">
           <h1 className="text-[40px] font-semibold text-[#1d1d1f] tracking-tight leading-tight">Market Scan</h1>
