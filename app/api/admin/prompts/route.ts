@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const sb = serviceSupabase();
-  const { data, error } = await sb.table("agent_prompts").select("agent, instructions, updated_at, updated_by");
+  const { data, error } = await sb.from("agent_prompts").select("agent, instructions, updated_at, updated_by");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ prompts: data ?? [] });
@@ -51,7 +51,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const sb = serviceSupabase();
-  const { error } = await sb.table("agent_prompts").upsert(
+  const { error } = await sb.from("agent_prompts").upsert(
     { agent, instructions, updated_at: new Date().toISOString(), updated_by: user.email },
     { onConflict: "agent" },
   );
