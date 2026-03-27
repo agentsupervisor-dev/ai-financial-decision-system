@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -10,37 +10,31 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     async function loadSession() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!isMounted) return;
-      setUserEmail(session?.user?.email ?? null);
+      if (session?.user?.email) {
+        router.replace("/");
+      }
     }
     loadSession();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
+      if (session?.user?.email) {
+        router.replace("/");
+      }
     });
     return () => { isMounted = false; listener?.subscription.unsubscribe(); };
-  }, []);
-
-  const isLoggedIn = useMemo(() => Boolean(userEmail), [userEmail]);
+  }, [router]);
 
   async function handleLogin() {
     setLoading(true);
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); } else { router.push("/"); }
-    setLoading(false);
-  }
-
-  async function handleLogout() {
-    setLoading(true);
-    await supabase.auth.signOut();
-    setEmail(""); setPassword(""); setUserEmail(null);
-    setLoading(false);
+    if (error) { setError(error.message); setLoading(false); }
+    // on success, onAuthStateChange fires and redirects — no need to call router here
   }
 
   return (
@@ -63,48 +57,30 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-black/[0.08] p-8">
-          {isLoggedIn ? (
-            <div className="space-y-3">
-              <div className="bg-[#f5f5f7] rounded-xl px-4 py-4">
-                <p className="text-xs text-[#6e6e73] mb-1">Signed in as</p>
-                <p className="text-sm font-medium text-[#1d1d1f] break-all">{userEmail}</p>
-              </div>
-              <button onClick={() => router.push("/")}
-                className="w-full py-3.5 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90"
-                style={{ background: "#0071e3" }}>
-                Go to Dashboard
-              </button>
-              <button onClick={handleLogout} disabled={loading}
-                className="w-full py-3.5 rounded-xl text-[15px] font-medium text-[#0071e3] bg-[#f5f5f7] hover:bg-[#ebebed] transition-colors disabled:opacity-40">
-                {loading ? "Signing out…" : "Sign out"}
-              </button>
+          <div className="space-y-5">
+            <div>
+              <label className="block text-[13px] font-medium text-[#1d1d1f] mb-2">Email Address</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                placeholder="you@example.com" autoComplete="email"
+                className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-3 text-[15px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
             </div>
-          ) : (
-            <div className="space-y-5">
-              <div>
-                <label className="block text-[13px] font-medium text-[#1d1d1f] mb-2">Email Address</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                  placeholder="you@example.com" autoComplete="email"
-                  className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-3 text-[15px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
-              </div>
-              <div>
-                <label className="block text-[13px] font-medium text-[#1d1d1f] mb-2">Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                  placeholder="••••••••" autoComplete="current-password"
-                  className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-3 text-[15px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
-              </div>
-              {error && (
-                <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600">{error}</div>
-              )}
-              <button onClick={handleLogin} disabled={loading || !email || !password}
-                className="w-full py-3.5 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: "#0071e3" }}>
-                {loading ? "Signing in…" : "Sign in"}
-              </button>
+            <div>
+              <label className="block text-[13px] font-medium text-[#1d1d1f] mb-2">Password</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                placeholder="••••••••" autoComplete="current-password"
+                className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-3 text-[15px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
             </div>
-          )}
+            {error && (
+              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600">{error}</div>
+            )}
+            <button onClick={handleLogin} disabled={loading || !email || !password}
+              className="w-full py-3.5 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "#0071e3" }}>
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </div>
         </div>
 
         <p className="text-center text-[12px] text-[#aeaeb2] mt-6">
