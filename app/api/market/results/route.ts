@@ -49,22 +49,27 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Fetch live prices from FMP for all symbols in one batch
+  // Fetch live prices in parallel — one request per ticker
   const apiKey = process.env.FMP_API_KEY;
   let prices: Record<string, { price: number; changesPercentage: number }> = {};
   if (apiKey) {
-    try {
-      const res = await fetch(
-        `https://financialmodelingprep.com/stable/batch-quote-short?symbols=${symbols.join(",")}&apikey=${apiKey}`,
-        { cache: "no-store" }
-      );
-      if (res.ok) {
-        const data = await res.json() as { symbol: string; price: number; changesPercentage: number }[];
-        for (const q of data) {
-          prices[q.symbol] = { price: q.price, changesPercentage: q.changesPercentage };
-        }
+    const priceResults = await Promise.allSettled(
+      symbols.map(async (symbol) => {
+        const res = await fetch(
+          `https://financialmodelingprep.com/stable/quote?symbol=${symbol}&apikey=${apiKey}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) return null;
+        const data = await res.json() as { symbol: string; price: number; changePercentage: number }[];
+        return data?.[0] ?? null;
+      })
+    );
+    for (const result of priceResults) {
+      if (result.status === "fulfilled" && result.value) {
+        const q = result.value;
+        prices[q.symbol] = { price: q.price, changesPercentage: q.changePercentage };
       }
-    } catch { /* prices stay empty */ }
+    }
   }
 
   const results = tickers.map((t) => {

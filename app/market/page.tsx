@@ -124,8 +124,10 @@ export default function MarketPage() {
   async function runScan() {
     if (!token) return;
     setScanning(true);
-    await fetch(`/api/cron/market-scan?universe=mega10`, {
-      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}` },
+    await fetch("/api/market/scan", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ universe: "mega10" }),
     });
     await loadResults(token);
     setScanning(false);
@@ -146,12 +148,6 @@ export default function MarketPage() {
   const formatScannedAt = (s: string | null) => {
     if (!s) return null;
     return new Date(s).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  };
-  const formatCap = (c: number | null) => {
-    if (c == null) return null;
-    if (c >= 1e12) return `$${(c / 1e12).toFixed(1)}T`;
-    if (c >= 1e9)  return `$${(c / 1e9).toFixed(0)}B`;
-    return `$${c.toFixed(0)}`;
   };
 
   if (!profilesLoaded || loading) {
