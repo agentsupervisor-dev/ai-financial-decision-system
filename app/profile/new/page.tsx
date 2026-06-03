@@ -48,12 +48,42 @@ export default function NewProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Manual picks state
+  const [manualTickers, setManualTickers] = useState<{ symbol: string; company_name: string; exchange: string }[]>([]);
+  const [tickerSearch, setTickerSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<{ symbol: string; company_name: string; sector: string | null; exchange: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+
   const hurdle = inflation + borrowing + indexReturn + opex + alpha;
   const selectedPreset = ALL_PRESETS.find((p) => p.key === universeKey);
 
   function handleSelectUniverse(key: string) {
     setUniverseKey(key);
     setUniverseType("preset");
+  }
+
+  async function searchTickers(q: string) {
+    setTickerSearch(q);
+    if (q.length < 1) { setSearchResults([]); return; }
+    setSearching(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`/api/tickers/search?q=${encodeURIComponent(q)}`, {
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    const json = await res.json();
+    setSearchResults(json.results ?? []);
+    setSearching(false);
+  }
+
+  function addTicker(ticker: { symbol: string; company_name: string; sector: string | null; exchange: string }) {
+    if (manualTickers.find((t) => t.symbol === ticker.symbol)) return;
+    setManualTickers((prev) => [...prev, { symbol: ticker.symbol, company_name: ticker.company_name, exchange: ticker.exchange }]);
+    setTickerSearch("");
+    setSearchResults([]);
+  }
+
+  function removeTicker(symbol: string) {
+    setManualTickers((prev) => prev.filter((t) => t.symbol !== symbol));
   }
 
   function goToStep2() {
@@ -79,6 +109,7 @@ export default function NewProfilePage() {
         opex, alpha_target: alpha,
         universe_type: universeType,
         universe_key: universeKey || "manual",
+        manual_tickers: universeType === "manual" ? manualTickers.map((t) => t.symbol) : [],
       }),
     });
     const json = await res.json();
@@ -184,6 +215,66 @@ export default function NewProfilePage() {
             </div>
 
             {error && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600 mb-5">{error}</div>}
+
+            {/* Manual stock picker */}
+            {universeKey === "manual" && (
+              <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-5">
+                <p className="text-[15px] font-semibold text-[#1d1d1f] mb-1">Add Stocks</p>
+                <p className="text-[12px] text-[#aeaeb2] mb-4">Search by ticker or company name. You can add more stocks after creating the profile.</p>
+
+                {/* Search input */}
+                <div className="relative mb-4">
+                  <input
+                    type="text"
+                    value={tickerSearch}
+                    onChange={(e) => searchTickers(e.target.value)}
+                    placeholder="Search e.g. AAPL or Apple"
+                    className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-2.5 text-[14px] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+                  />
+                  {searching && <span className="absolute right-3 top-3 text-[12px] text-[#aeaeb2]">Searching…</span>}
+                </div>
+
+                {/* Search results dropdown */}
+                {searchResults.length > 0 && (
+                  <div className="border border-[#e5e5ea] rounded-xl overflow-hidden mb-4">
+                    {searchResults.map((r) => (
+                      <button key={r.symbol}
+                        onClick={() => addTicker(r)}
+                        disabled={!!manualTickers.find((t) => t.symbol === r.symbol)}
+                        className="w-full text-left px-4 py-3 flex items-center justify-between border-b border-[#f0f0f0] last:border-0 hover:bg-[#f5f5f7] transition-colors disabled:opacity-40">
+                        <div>
+                          <span className="text-[14px] font-semibold text-[#1d1d1f]">{r.symbol}</span>
+                          <span className="text-[12px] text-[#6e6e73] ml-2">{r.company_name}</span>
+                        </div>
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73]">
+                          {manualTickers.find((t) => t.symbol === r.symbol) ? "Added ✓" : `+ Add · ${r.exchange}`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Selected tickers */}
+                {manualTickers.length === 0 ? (
+                  <p className="text-[12px] text-[#aeaeb2] text-center py-4 border-2 border-dashed border-[#e5e5ea] rounded-xl">
+                    No stocks added yet — search above to add
+                  </p>
+                ) : (
+                  <div>
+                    <p className="text-[11px] text-[#aeaeb2] mb-2">{manualTickers.length} stock{manualTickers.length !== 1 ? "s" : ""} selected</p>
+                    <div className="flex flex-wrap gap-2">
+                      {manualTickers.map((t) => (
+                        <div key={t.symbol} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f0f6ff] border border-[#c7dcff]">
+                          <span className="text-[13px] font-semibold text-[#0071e3]">{t.symbol}</span>
+                          <button onClick={() => removeTicker(t.symbol)}
+                            className="text-[#aeaeb2] hover:text-red-500 transition-colors text-[14px] leading-none ml-0.5">×</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 space-y-5">
               <div>

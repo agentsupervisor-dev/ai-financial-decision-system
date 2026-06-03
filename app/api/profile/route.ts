@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, investment_period, inflation, borrowing, index_return, opex, alpha_target, universe_type, universe_key } = body;
+  const { name, investment_period, inflation, borrowing, index_return, opex, alpha_target, universe_type, universe_key, manual_tickers } = body;
 
   const profileName = (name || "My Portfolio").trim();
 
@@ -78,6 +78,14 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Save manual tickers if provided
+  if (universe_type === "manual" && Array.isArray(manual_tickers) && manual_tickers.length > 0 && data) {
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    await sb.from("profile_tickers").insert(
+      manual_tickers.map((symbol: string) => ({ profile_id: data.id, user_id: user.id, symbol }))
+    );
   }
 
   return NextResponse.json({ profile: data });
