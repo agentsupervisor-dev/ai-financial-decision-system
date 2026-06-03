@@ -39,16 +39,13 @@ interface MarketResult {
   scanned_at: string | null;
 }
 
-function hurdleRate(p: Profile) {
+function hurdleFor(p: Profile) {
   return p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target;
 }
 
 function computeDecision(
-  composite: number | null,
-  confidence: number | null,
-  expectedReturn: number | null,
-  hurdle: number,
-  period: string,
+  composite: number | null, confidence: number | null,
+  expectedReturn: number | null, hurdle: number, period: string,
 ): "BUY" | "HOLD" | "REJECT" | null {
   if (composite === null || confidence === null || expectedReturn === null) return null;
   const thresholds: Record<string, number> = { "1yr": 65, "3yr": 55, "5yr": 48 };
@@ -66,10 +63,8 @@ function DecisionBadge({ decision }: { decision: "BUY" | "HOLD" | "REJECT" | nul
     REJECT: { bg: "#fde8e8", color: "#c0392b", icon: "▼" },
   }[decision];
   return (
-    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[12px] font-semibold tracking-wider"
-      style={{ background: cfg.bg, color: cfg.color }}>
-      {cfg.icon} {decision}
-    </span>
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[12px] font-semibold tracking-wider"
+      style={{ background: cfg.bg, color: cfg.color }}>{cfg.icon} {decision}</span>
   );
 }
 
@@ -89,29 +84,133 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
   );
 }
 
-function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
-  const hurdle = hurdleRate(profile);
-  const [results, setResults] = useState<MarketResult[]>([]);
-  const [scannedAt, setScannedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [scanning, setScanning] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+// ── Summary Section ───────────────────────────────────────────────────────────
 
-  const loadResults = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch(`/api/market/results?universe=${profile.universe_key}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const json = await res.json();
-      setResults(json.results ?? []);
-      setScannedAt(json.scanned_at ?? null);
+function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResults: Record<number, MarketResult[]> }) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  // Aggregate across all profiles — deduplicate stocks, use the first profile's hurdle
+  const stockDecisions: { symbol: string; company_name: string; sector: string; decision: "BUY" | "HOLD" | "REJECT"; profile_name: string }[] = [];
+  const seen = new Set<string>();
+
+  for (const profile of profiles) {
+    const results = allResults[profile.id] ?? [];
+    const hurdle = hurdleFor(profile);
+    for (const r of results) {
+      if (r.scanned_at === null) continue;
+      const decision = computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period);
+      if (!decision) continue;
+      const key = `${profile.id}-${r.symbol}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      stockDecisions.push({ symbol: r.symbol, company_name: r.company_name, sector: r.sector, decision, profile_name: profile.name });
     }
-    setLoading(false);
-  }, [profile.universe_key, token]);
+  }
 
-  useEffect(() => { loadResults(); }, [loadResults]);
+  const buys    = stockDecisions.filter((s) => s.decision === "BUY");
+  const holds   = stockDecisions.filter((s) => s.decision === "HOLD");
+  const rejects = stockDecisions.filter((s) => s.decision === "REJECT");
+
+  // Group buys by sector
+  const buysBySector = buys.reduce((acc, s) => {
+    acc[s.sector] = acc[s.sector] ? [...acc[s.sector], s.symbol] : [s.symbol];
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  const hasData = stockDecisions.length > 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-8">
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h2 className="text-[20px] font-semibold text-[#1d1d1f]">{greeting} 👋</h2>
+          <p className="text-[13px] text-[#6e6e73] mt-0.5">
+            {hasData
+              ? `Here's your market snapshot across ${profiles.length} profile${profiles.length !== 1 ? "s" : ""}`
+              : "Run a scan to see your market summary"}
+          </p>
+        </div>
+        {hasData && (
+          <span className="text-[11px] text-[#aeaeb2]">{stockDecisions.length} signals total</span>
+        )}
+      </div>
+
+      {!hasData ? (
+        <p className="text-[13px] text-[#aeaeb2] text-center py-4">No scan data yet — click Scan Now on any profile below.</p>
+      ) : (
+        <>
+          {/* Signal counts */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[
+              { label: "BUY",    count: buys.length,    bg: "#e3f5e9", color: "#1a7f3c", icon: "▲" },
+              { label: "HOLD",   count: holds.length,   bg: "#fef6e0", color: "#a3730a", icon: "◼" },
+              { label: "REJECT", count: rejects.length, bg: "#fde8e8", color: "#c0392b", icon: "▼" },
+            ].map(({ label, count, bg, color, icon }) => (
+              <div key={label} className="rounded-xl p-4 text-center" style={{ background: bg }}>
+                <p className="text-[28px] font-semibold" style={{ color }}>{count}</p>
+                <p className="text-[12px] font-semibold mt-0.5" style={{ color }}>{icon} {label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* BUY breakdown by sector */}
+          {buys.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">BUY opportunities by sector</p>
+              <div className="space-y-1.5">
+                {Object.entries(buysBySector).map(([sector, symbols]) => (
+                  <div key={sector} className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[12px] text-[#6e6e73] min-w-[100px]">{sector}</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {symbols.map((sym) => (
+                        <span key={sym} className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{ background: "#e3f5e9", color: "#1a7f3c" }}>{sym}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* HOLD/REJECT tickers compact */}
+          {holds.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
+              <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">Hold</p>
+              <div className="flex gap-1 flex-wrap">
+                {holds.map((s) => (
+                  <span key={`${s.profile_name}-${s.symbol}`} className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                    style={{ background: "#fef6e0", color: "#a3730a" }}>{s.symbol}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Profile Panel ─────────────────────────────────────────────────────────────
+
+function ProfilePanel({
+  profile, token, results, scannedAt, loading,
+  onRefresh, onDelete,
+}: {
+  profile: Profile;
+  token: string;
+  results: MarketResult[];
+  scannedAt: string | null;
+  loading: boolean;
+  onRefresh: () => void;
+  onDelete: (id: number) => void;
+}) {
+  const hurdle = hurdleFor(profile);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function runScan() {
     setScanning(true);
@@ -120,8 +219,17 @@ function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ universe: profile.universe_key }),
     });
-    await loadResults();
+    onRefresh();
     setScanning(false);
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    await fetch(`/api/profile/${profile.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    onDelete(profile.id);
   }
 
   const noResults = results.every((r) => r.scanned_at === null);
@@ -130,54 +238,78 @@ function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
   const reject = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "REJECT").length;
 
   return (
-    <div className="mb-10">
+    <div className="mb-8">
       {/* Profile header */}
-      <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-3">
+      <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-2">
         <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-[22px] font-semibold text-[#1d1d1f]">{profile.name}</h2>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h2 className="text-[20px] font-semibold text-[#1d1d1f]">{profile.name}</h2>
               <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#f5f5f7] text-[#6e6e73] font-medium">
                 {UNIVERSE_LABELS[profile.universe_key] ?? profile.universe_key}
               </span>
             </div>
-            <p className="text-[13px] text-[#6e6e73]">
+            <p className="text-[12px] text-[#6e6e73]">
               {profile.investment_period === "1yr" ? "Short-term · 1 yr" : profile.investment_period === "3yr" ? "Medium-term · 3 yrs" : "Long-term · 5+ yrs"}
-              {scannedAt && ` · Last scan ${new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+              {scannedAt && ` · Scanned ${new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
             </p>
             {!noResults && (
-              <div className="flex gap-3 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {buy    > 0 && <span className="text-[12px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "#e3f5e9", color: "#1a7f3c" }}>▲ {buy} BUY</span>}
                 {hold   > 0 && <span className="text-[12px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "#fef6e0", color: "#a3730a" }}>◼ {hold} HOLD</span>}
                 {reject > 0 && <span className="text-[12px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "#fde8e8", color: "#c0392b" }}>▼ {reject} REJECT</span>}
               </div>
             )}
           </div>
-          <div className="flex flex-col items-end gap-2">
+
+          <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="text-right">
               <p className="text-[11px] text-[#aeaeb2]">Hurdle Rate</p>
-              <p className="text-[26px] font-semibold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
+              <p className="text-[24px] font-semibold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
             </div>
-            <button onClick={runScan} disabled={scanning || loading}
-              className="px-4 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              style={{ background: "#0071e3" }}>
-              {scanning ? "Scanning…" : "Scan Now"}
-            </button>
+            <div className="flex gap-2">
+              <Link href={`/profile/${profile.id}`}
+                className="px-3 py-1.5 rounded-xl text-[12px] font-medium text-[#6e6e73] bg-[#f5f5f7] hover:bg-[#e5e5ea] transition-colors">
+                Edit
+              </Link>
+              <button onClick={() => setConfirmDelete(true)}
+                className="px-3 py-1.5 rounded-xl text-[12px] font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                Delete
+              </button>
+              <button onClick={runScan} disabled={scanning || loading}
+                className="px-4 py-1.5 rounded-xl text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ background: "#0071e3" }}>
+                {scanning ? "Scanning…" : "Scan Now"}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Delete confirm */}
+        {confirmDelete && (
+          <div className="mt-4 pt-4 border-t border-[#f0f0f0] flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-[13px] text-[#3a3a3c]">Delete <strong>{profile.name}</strong>? This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDelete(false)}
+                className="px-4 py-2 rounded-xl text-[13px] font-medium text-[#6e6e73] bg-[#f5f5f7]">Cancel</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="px-4 py-2 rounded-xl text-[13px] font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-40">
+                {deleting ? "Deleting…" : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* No results yet */}
-      {loading && <p className="text-center text-[13px] text-[#aeaeb2] py-6">Loading…</p>}
+      {loading && <p className="text-center text-[13px] text-[#aeaeb2] py-4">Loading…</p>}
 
       {!loading && noResults && (
-        <div className="bg-white rounded-2xl border border-black/[0.08] p-8 text-center">
-          <p className="text-[#6e6e73] text-[14px] mb-1">No scan results yet for this profile.</p>
-          <p className="text-[12px] text-[#aeaeb2]">Click <strong>Scan Now</strong> to run the first analysis.</p>
+        <div className="bg-white rounded-2xl border border-black/[0.08] p-6 text-center">
+          <p className="text-[13px] text-[#6e6e73]">No scan results yet — click <strong>Scan Now</strong> to analyse these stocks.</p>
         </div>
       )}
 
-      {/* Stock results */}
+      {/* Stock rows */}
       {!loading && !noResults && (
         <div className="space-y-2">
           {results.map((stock) => {
@@ -190,18 +322,18 @@ function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
                 <button className="w-full text-left px-6 py-4 hover:bg-[#fafafa] transition-colors"
                   onClick={() => setExpanded(isExpanded ? null : stock.symbol)}>
                   <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[18px] font-semibold text-[#1d1d1f]">{stock.symbol}</span>
+                          <span className="text-[17px] font-semibold text-[#1d1d1f]">{stock.symbol}</span>
                           <span className="text-[10px] text-[#aeaeb2] hidden sm:block">{stock.exchange}</span>
                         </div>
-                        <p className="text-[12px] text-[#6e6e73] truncate max-w-[180px]">{stock.company_name}</p>
+                        <p className="text-[11px] text-[#6e6e73] truncate max-w-[180px]">{stock.company_name}</p>
                       </div>
-                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#f5f5f7] text-[#6e6e73] hidden sm:block">{stock.sector}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] hidden sm:block">{stock.sector}</span>
                     </div>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[18px] font-semibold text-[#1d1d1f]">
+                      <span className="text-[17px] font-semibold text-[#1d1d1f]">
                         {stock.price != null ? `$${stock.price.toFixed(2)}` : "—"}
                       </span>
                       {stock.change_pct != null && (
@@ -241,7 +373,7 @@ function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
                           <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">
                             Hurdle Analysis · {hurdle.toFixed(1)}% required
                           </p>
-                          <div className="space-y-2.5">
+                          <div className="space-y-2">
                             {[
                               ["Expected Return", `${stock.expected_return?.toFixed(1) ?? "—"}%`, stock.expected_return != null ? (stock.expected_return >= hurdle ? "#34c759" : "#ff3b30") : "#6e6e73"],
                               ["Hurdle Rate",     `${hurdle.toFixed(1)}%`,                        "#1d1d1f"],
@@ -249,24 +381,19 @@ function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
                               ["Confidence",      `${stock.confidence?.toFixed(1) ?? "—"}%`,      "#1d1d1f"],
                             ].map(([label, value, color]) => (
                               <div key={label as string} className="flex justify-between">
-                                <span className="text-[13px] text-[#6e6e73]">{label as string}</span>
+                                <span className="text-[12px] text-[#6e6e73]">{label as string}</span>
                                 <span className="text-[13px] font-semibold" style={{ color: color as string }}>{value as string}</span>
                               </div>
                             ))}
                           </div>
-                          <div className="mt-4 pt-4 border-t border-[#f0f0f0]">
+                          <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
                             <DecisionBadge decision={decision} />
                             {stock.decision_summary && (
-                              <p className="mt-3 text-[13px] text-[#3a3a3c] leading-relaxed">{stock.decision_summary}</p>
+                              <p className="mt-2 text-[12px] text-[#3a3a3c] leading-relaxed">{stock.decision_summary}</p>
                             )}
                           </div>
                         </div>
                       </div>
-                    )}
-                    {stock.scanned_at && (
-                      <p className="mt-4 text-[11px] text-[#aeaeb2]">
-                        Scanned {new Date(stock.scanned_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      </p>
                     )}
                   </div>
                 )}
@@ -279,10 +406,17 @@ function ProfilePanel({ profile, token }: { profile: Profile; token: string }) {
   );
 }
 
+// ── Market Page ───────────────────────────────────────────────────────────────
+
 export default function MarketPage() {
   const router = useRouter();
-  const { profiles, profilesLoaded, userEmail, isSuperuser } = useScan();
+  const { profiles, profilesLoaded, userEmail, isSuperuser, refreshProfiles } = useScan();
   const [token, setToken] = useState<string | null>(null);
+
+  // Per-profile results — keyed by profile.id
+  const [allResults, setAllResults]     = useState<Record<number, MarketResult[]>>({});
+  const [scannedAts, setScannedAts]     = useState<Record<number, string | null>>({});
+  const [loadingMap, setLoadingMap]     = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!profilesLoaded) return;
@@ -291,6 +425,30 @@ export default function MarketPage() {
       setToken(session.access_token);
     });
   }, [profilesLoaded, router]);
+
+  const fetchForProfile = useCallback(async (profile: Profile, tok: string) => {
+    setLoadingMap((prev) => ({ ...prev, [profile.id]: true }));
+    const res = await fetch(`/api/market/results?universe=${profile.universe_key}`, {
+      headers: { Authorization: `Bearer ${tok}` }, cache: "no-store",
+    });
+    if (res.ok) {
+      const json = await res.json();
+      setAllResults((prev) => ({ ...prev, [profile.id]: json.results ?? [] }));
+      setScannedAts((prev) => ({ ...prev, [profile.id]: json.scanned_at ?? null }));
+    }
+    setLoadingMap((prev) => ({ ...prev, [profile.id]: false }));
+  }, []);
+
+  useEffect(() => {
+    if (!token || profiles.length === 0) return;
+    profiles.forEach((p) => fetchForProfile(p, token));
+  }, [token, profiles, fetchForProfile]);
+
+  async function handleDelete(profileId: number) {
+    await refreshProfiles();
+    setAllResults((prev) => { const n = { ...prev }; delete n[profileId]; return n; });
+    setScannedAts((prev) => { const n = { ...prev }; delete n[profileId]; return n; });
+  }
 
   if (!profilesLoaded || !token) {
     return (
@@ -304,30 +462,29 @@ export default function MarketPage() {
     <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
       {/* Nav */}
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-[15px] font-semibold text-[#1d1d1f]">Finance Decision Machine</span>
           <div className="flex items-center gap-5">
             <span className="text-[13px] text-[#6e6e73] hidden sm:block">{userEmail}</span>
             {isSuperuser && (
               <Link href="/admin/prompts" className="text-[13px] text-[#a3730a] hover:underline font-medium">Admin</Link>
             )}
+            <Link href="/profile" className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f]">My Profiles</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
-              className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">
-              Sign out
-            </button>
+              className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">Sign out</button>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-6 py-10 pb-24">
+      <div className="max-w-7xl mx-auto px-6 py-10 pb-24">
 
-        {/* No profiles → prompt to create */}
         {profiles.length === 0 ? (
+          /* No profiles — welcome screen */
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <div className="text-[48px] mb-4">📊</div>
             <h1 className="text-[28px] font-semibold text-[#1d1d1f] mb-2">Welcome to Market Intelligence</h1>
             <p className="text-[15px] text-[#6e6e73] mb-2 max-w-md">
-              Create your first investment profile to start scanning stocks and seeing AI-powered BUY / HOLD / REJECT signals.
+              Create your first investment profile to start seeing AI-powered BUY / HOLD / REJECT signals.
             </p>
             <p className="text-[13px] text-[#aeaeb2] mb-8 max-w-md">
               Choose a stock universe (MEGA Cap, S&P 500, a sector, or manual picks), then set your hurdle rate.
@@ -340,21 +497,39 @@ export default function MarketPage() {
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+            {/* ── Page header ── */}
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div>
                 <h1 className="text-[34px] font-semibold text-[#1d1d1f] tracking-tight">Market Intelligence</h1>
-                <p className="mt-1 text-[15px] text-[#6e6e73]">AI-powered signals based on your investment profiles · Auto-scanned weekdays 9 AM UTC</p>
+                <p className="mt-1 text-[14px] text-[#6e6e73]">AI signals based on your profiles · Auto-scanned weekdays 9 AM UTC</p>
               </div>
               <Link href="/profile/new"
-                className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-[#0071e3] bg-[#f0f6ff] hover:bg-[#e0efff] transition-colors">
+                className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+                style={{ background: "#0071e3" }}>
                 + New Profile
               </Link>
             </div>
 
-            {/* One panel per profile */}
+            {/* ── SECTION 1: Summary ── */}
+            <SummarySection profiles={profiles} allResults={allResults} />
+
+            {/* ── SECTION 2: Per-profile panels ── */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">Your Profiles</h2>
+              <Link href="/profile" className="text-[13px] text-[#0071e3] hover:underline">Manage all profiles →</Link>
+            </div>
+
             {profiles.map((profile) => (
-              <ProfilePanel key={profile.id} profile={profile} token={token} />
+              <ProfilePanel
+                key={profile.id}
+                profile={profile}
+                token={token}
+                results={allResults[profile.id] ?? []}
+                scannedAt={scannedAts[profile.id] ?? null}
+                loading={loadingMap[profile.id] ?? true}
+                onRefresh={() => fetchForProfile(profile, token)}
+                onDelete={handleDelete}
+              />
             ))}
           </>
         )}
