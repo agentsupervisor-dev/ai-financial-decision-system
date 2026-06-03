@@ -21,31 +21,88 @@ export interface TickerAnalysis {
 
 // ── LLM clients ───────────────────────────────────────────────────────────────
 
-// Gemini Flash via Google AI Studio REST API (needs GEMINI_API_KEY)
+// Get a short-lived OAuth2 token from a GCP service account JSON string
+async function getGCPAccessToken(serviceAccountJson: string): Promise<string> {
+  const sa = JSON.parse(serviceAccountJson);
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
+  const claim = Buffer.from(JSON.stringify({
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform",
+    aud: sa.token_uri ?? "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  })).toString("base64url");
+
+  const { createSign } = await import("crypto");
+  const sign = createSign("RSA-SHA256");
+  sign.update(`${header}.${claim}`);
+  const sig = sign.sign(sa.private_key, "base64url");
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: `${header}.${claim}.${sig}`,
+    }),
+  });
+  const data = await res.json() as { access_token?: string };
+  if (!data.access_token) throw new Error("No access token returned");
+  return data.access_token;
+}
+
+// Gemini 2.0 Flash — prefers Vertex AI (uses GCP $300 credits) via service account,
+// falls back to Google AI Studio API key, then Claude.
 async function callGemini(prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    // Fallback to Claude if no Gemini key configured
-    return callClaude(prompt);
-  }
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
+  const gac = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "";
+  const project = process.env.GOOGLE_CLOUD_PROJECT;
+  const location = process.env.GOOGLE_CLOUD_LOCATION ?? "us-central1";
+
+  // Try Vertex AI using service account JSON stored directly in the env var
+  if (gac.trim().startsWith("{") && project) {
+    try {
+      const token = await getGCPAccessToken(gac);
+      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.0-flash-001:generateContent`;
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { maxOutputTokens: 600, temperature: 0.2 },
         }),
         cache: "no-store",
-      }
-    );
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  } catch {
-    return callClaude(prompt);
+      });
+      const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    } catch { /* fall through */ }
   }
+
+  // Fall back to Google AI Studio API key
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 600, temperature: 0.2 },
+          }),
+          cache: "no-store",
+        }
+      );
+      const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    } catch { /* fall through */ }
+  }
+
+  return callClaude(prompt);
 }
 
 // DeepSeek Chat via OpenRouter (needs OPENROUTER_API_KEY)
