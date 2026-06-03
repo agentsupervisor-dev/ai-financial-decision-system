@@ -69,7 +69,7 @@ async function callGemini(prompt: string): Promise<string> {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: { maxOutputTokens: 600, temperature: 0.2 },
         }),
         cache: "no-store",

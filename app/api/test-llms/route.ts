@@ -30,7 +30,7 @@ async function testGemini() {
       const tokenData = await tokenRes.json() as { access_token?: string };
       if (!tokenData.access_token) throw new Error(JSON.stringify(tokenData));
       const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.5-flash:generateContent`;
-      const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
+      const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
       const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? JSON.stringify(data);
       return { ok: reply.includes("OK"), reply: reply.trim(), via: "Vertex AI (GCP credits)", ms: Date.now() - start };
