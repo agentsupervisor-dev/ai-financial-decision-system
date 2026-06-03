@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useScan, Profile } from "@/lib/ScanContext";
+import BuyModal from "@/app/components/BuyModal";
 
 const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" };
 
@@ -179,6 +180,19 @@ function ProfilePanel({
   const [scanning, setScanning] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [buyTarget, setBuyTarget] = useState<MarketResult | null>(null);
+  const [vipBalance, setVipBalance] = useState<number>(10000);
+
+  // Load VIP balance for this profile on mount
+  useEffect(() => {
+    fetch("/api/vip/portfolio", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        const port = (json.portfolios ?? []).find((p: { profile_id: number; current_balance: number }) => p.profile_id === profile.id);
+        if (port) setVipBalance(port.current_balance);
+      })
+      .catch(() => { /* keep default */ });
+  }, [token, profile.id]);
 
   async function runScan() {
     setScanning(true);
@@ -329,32 +343,42 @@ function ProfilePanel({
 
                       return (
                         <div key={stock.symbol} className="border-b border-[#f0f0f0] last:border-0">
-                          {/* Compact row — grid layout, no justify-between gap */}
-                          <button
-                            className="w-full text-left px-4 py-2.5 hover:bg-[#fafafa] transition-colors"
-                            onClick={() => setExpandedStock(isOpen ? null : `${profile.id}-${stock.symbol}`)}>
-                            <div className="grid items-center gap-x-2 text-[12px]"
-                              style={{ gridTemplateColumns: "3.5rem 1fr auto auto auto auto 1rem" }}>
-                              <span className="font-bold text-[#1d1d1f] text-[13px]">{stock.symbol}</span>
-                              <span className="text-[#6e6e73] truncate">{stock.company_name}
-                                <span className="text-[#aeaeb2] ml-1.5 hidden sm:inline">{stock.sector}</span>
-                              </span>
-                              <span className="font-semibold text-[#1d1d1f] text-right pr-1">
-                                {stock.price != null ? `$${stock.price.toFixed(2)}` : "—"}
-                              </span>
-                              <span className="text-right pr-1 font-medium"
-                                style={{ color: (stock.change_pct ?? 0) >= 0 ? "#34c759" : "#ff3b30" }}>
-                                {stock.change_pct != null ? `${stock.change_pct >= 0 ? "+" : ""}${stock.change_pct.toFixed(1)}%` : ""}
-                              </span>
-                              <span className="text-[#6e6e73] text-right pr-1">
-                                {stock.composite_score != null && <>Score <b className="text-[#1d1d1f]">{stock.composite_score.toFixed(0)}</b></>}
-                              </span>
-                              <span className="font-semibold text-right pr-1" style={{ color: groupColor }}>
-                                {stock.expected_return != null ? `${stock.expected_return.toFixed(1)}%` : ""}
-                              </span>
-                              <span className="text-[10px] text-[#aeaeb2] text-right">{isOpen ? "▲" : "▼"}</span>
-                            </div>
-                          </button>
+                          {/* Compact row */}
+                          <div className="flex items-center px-4 py-2.5 gap-2 hover:bg-[#fafafa] transition-colors">
+                            <button className="flex-1 text-left"
+                              onClick={() => setExpandedStock(isOpen ? null : `${profile.id}-${stock.symbol}`)}>
+                              <div className="grid items-center gap-x-2 text-[12px]"
+                                style={{ gridTemplateColumns: "3.5rem 1fr auto auto auto auto 1rem" }}>
+                                <span className="font-bold text-[#1d1d1f] text-[13px]">{stock.symbol}</span>
+                                <span className="text-[#6e6e73] truncate">{stock.company_name}
+                                  <span className="text-[#aeaeb2] ml-1.5 hidden sm:inline">{stock.sector}</span>
+                                </span>
+                                <span className="font-semibold text-[#1d1d1f] text-right pr-1">
+                                  {stock.price != null ? `$${stock.price.toFixed(2)}` : "—"}
+                                </span>
+                                <span className="text-right pr-1 font-medium"
+                                  style={{ color: (stock.change_pct ?? 0) >= 0 ? "#34c759" : "#ff3b30" }}>
+                                  {stock.change_pct != null ? `${stock.change_pct >= 0 ? "+" : ""}${stock.change_pct.toFixed(1)}%` : ""}
+                                </span>
+                                <span className="text-[#6e6e73] text-right pr-1">
+                                  {stock.composite_score != null && <>Score <b className="text-[#1d1d1f]">{stock.composite_score.toFixed(0)}</b></>}
+                                </span>
+                                <span className="font-semibold text-right pr-1" style={{ color: groupColor }}>
+                                  {stock.expected_return != null ? `${stock.expected_return.toFixed(1)}%` : ""}
+                                </span>
+                                <span className="text-[10px] text-[#aeaeb2] text-right">{isOpen ? "▲" : "▼"}</span>
+                              </div>
+                            </button>
+                            {/* Buy button — only when price is available */}
+                            {stock.price != null && (
+                              <button
+                                onClick={() => { setBuyTarget(stock); }}
+                                className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                                style={{ background: group === "BUY" ? "#16a34a" : "#6e6e73" }}>
+                                Buy
+                              </button>
+                            )}
+                          </div>
 
                           {/* Expanded stock detail */}
                           {isOpen && (
@@ -423,6 +447,27 @@ function ProfilePanel({
             </div>
           )}
         </div>
+      )}
+
+      {/* Buy Modal */}
+      {buyTarget && buyTarget.price != null && (
+        <BuyModal
+          symbol={buyTarget.symbol}
+          company_name={buyTarget.company_name}
+          sector={buyTarget.sector}
+          current_price={buyTarget.price}
+          expected_return={buyTarget.expected_return}
+          hurdle_rate={hurdle}
+          profile_id={profile.id}
+          profile_name={profile.name}
+          available_balance={vipBalance}
+          token={token}
+          onClose={() => setBuyTarget(null)}
+          onSuccess={(newBalance) => {
+            setVipBalance(newBalance);
+            setBuyTarget(null);
+          }}
+        />
       )}
     </div>
   );
@@ -505,6 +550,11 @@ export default function MarketPage() {
             {isSuperuser && (
               <Link href="/admin/prompts" className="text-[13px] text-[#c2410c] hover:underline font-medium">Admin</Link>
             )}
+            <Link href="/portfolio"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-colors"
+              style={{ background: "#f0fdf4", color: "#16a34a" }}>
+              💰 Portfolio
+            </Link>
             <Link href="/profile" className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f]">My Profiles</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
               className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">Sign out</button>
