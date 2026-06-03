@@ -60,9 +60,8 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
     const hurdle = hurdleFor(profile);
     for (const r of results) {
       if (!r.scanned_at) continue;
-      const key = `${profile.id}-${r.symbol}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen.has(r.symbol)) continue;
+      seen.add(r.symbol);
       const d = computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period);
       const sig = { symbol: r.symbol, company_name: r.company_name, sector: r.sector, profile_name: profile.name };
       if (d === "BUY") buys.push(sig);
@@ -472,7 +471,7 @@ export default function MarketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
+    <div className="min-h-screen bg-[#f5f5f7] flex flex-col" style={APPLE}>
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-[15px] font-semibold text-[#1d1d1f]">Finance Decision Machine</span>
@@ -488,7 +487,7 @@ export default function MarketPage() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 pb-24">
+      <div className="max-w-7xl mx-auto px-6 py-8 pb-16 flex-1">
         {profiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <div className="text-[48px] mb-4">📊</div>
