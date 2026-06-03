@@ -75,41 +75,41 @@ export default function AdminPromptsPage() {
   const [token, setToken] = useState<string | null>(null);
   const [tab, setTab] = useState<"tickers" | "prompts" | "system" | "wallets">("tickers");
 
-  // Wallets tab state
-  type VipPortfolio = {
-    profile_id: number; profile_name: string; universe_key: string;
-    user_email: string; portfolio_id: number | null;
-    current_balance: number | null; initial_balance: number;
+  // Wallets tab state — one wallet per user
+  type VipUser = {
+    user_id: string; user_email: string;
+    wallet_id: number | null; current_balance: number | null; initial_balance: number;
+    profiles: { id: number; name: string }[];
   };
-  const [wallets, setWallets] = useState<VipPortfolio[]>([]);
-  const [walletInputs, setWalletInputs] = useState<Record<number, string>>({});
-  const [walletSaving, setWalletSaving] = useState<number | null>(null);
-  const [walletMsg, setWalletMsg] = useState<Record<number, string>>({});
+  const [wallets, setWallets] = useState<VipUser[]>([]);
+  const [walletInputs, setWalletInputs] = useState<Record<string, string>>({});
+  const [walletSaving, setWalletSaving] = useState<string | null>(null);
+  const [walletMsg, setWalletMsg] = useState<Record<string, string>>({});
   const [walletsLoaded, setWalletsLoaded] = useState(false);
 
   async function loadWallets(tok: string) {
     const res = await fetch("/api/admin/vip", { headers: { Authorization: `Bearer ${tok}` } });
     const json = await res.json();
-    setWallets(json.portfolios ?? []);
+    setWallets(json.users ?? []);
     setWalletsLoaded(true);
   }
 
-  async function saveWallet(profileId: number) {
+  async function saveWallet(userId: string) {
     if (!token) return;
-    const val = parseFloat(walletInputs[profileId]);
+    const val = parseFloat(walletInputs[userId]);
     if (isNaN(val) || val < 0) return;
-    setWalletSaving(profileId);
+    setWalletSaving(userId);
     const res = await fetch("/api/admin/vip", {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ profile_id: profileId, new_balance: val }),
+      body: JSON.stringify({ user_id: userId, new_balance: val }),
     });
     if (res.ok) {
       setWallets((prev) => prev.map((w) =>
-        w.profile_id === profileId ? { ...w, current_balance: val, portfolio_id: w.portfolio_id ?? profileId } : w
+        w.user_id === userId ? { ...w, current_balance: val } : w
       ));
-      setWalletMsg((prev) => ({ ...prev, [profileId]: "✓ Updated" }));
-      setTimeout(() => setWalletMsg((prev) => ({ ...prev, [profileId]: "" })), 2500);
+      setWalletMsg((prev) => ({ ...prev, [userId]: "✓ Updated" }));
+      setTimeout(() => setWalletMsg((prev) => ({ ...prev, [userId]: "" })), 2500);
     }
     setWalletSaving(null);
   }
@@ -436,69 +436,62 @@ export default function AdminPromptsPage() {
               <p className="text-[13px] text-[#aeaeb2] text-center py-8">Loading…</p>
             ) : wallets.length === 0 ? (
               <div className="bg-white rounded-2xl border border-black/[0.08] p-8 text-center">
-                <p className="text-[14px] text-[#6e6e73]">No profiles found.</p>
+                <p className="text-[14px] text-[#6e6e73]">No users found.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {Object.entries(
-                  wallets.reduce((acc, w) => {
-                    acc[w.user_email] = [...(acc[w.user_email] ?? []), w];
-                    return acc;
-                  }, {} as Record<string, typeof wallets>)
-                ).map(([email, userWallets]) => (
-                  <div key={email} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm overflow-hidden">
-                    <div className="px-5 py-3 border-b border-[#f0f0f0] bg-[#f9f9f9] flex items-center justify-between">
-                      <span className="text-[13px] font-semibold text-[#1d1d1f]">{email}</span>
-                      <span className="text-[11px] text-[#aeaeb2]">{userWallets.length} profile{userWallets.length !== 1 ? "s" : ""}</span>
-                    </div>
-
-                    {userWallets.map((w) => {
-                      const isActive = w.current_balance !== null;
-                      const balance  = w.current_balance ?? 0;
-                      return (
-                        <div key={w.profile_id} className="flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] last:border-0 flex-wrap">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-[14px] font-semibold text-[#1d1d1f]">{w.profile_name}</p>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73]">{w.universe_key}</span>
-                              {!isActive && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#fff7ed] text-[#ea580c] font-semibold">Not activated</span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-[#aeaeb2] mt-0.5">
-                              {isActive
-                                ? <>Balance: <span className="font-semibold text-[#0071e3]">${balance.toFixed(2)}</span> · Initial: ${w.initial_balance.toFixed(0)}</>
-                                : "No wallet yet — set a balance to activate"}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="flex items-center gap-1 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
-                              <span className="text-[13px] text-[#6e6e73]">$</span>
-                              <input
-                                type="number" min={0} step={1000}
-                                placeholder={isActive ? balance.toFixed(0) : "10000"}
-                                value={walletInputs[w.profile_id] ?? ""}
-                                onChange={(e) => setWalletInputs((prev) => ({ ...prev, [w.profile_id]: e.target.value }))}
-                                className="w-24 bg-transparent text-[14px] font-semibold text-[#1d1d1f] focus:outline-none"
-                              />
-                            </div>
-                            <button
-                              onClick={() => saveWallet(w.profile_id)}
-                              disabled={walletSaving === w.profile_id || !walletInputs[w.profile_id]}
-                              className="px-4 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                              style={{ background: "#0071e3" }}>
-                              {walletSaving === w.profile_id ? "Saving…" : isActive ? "Update" : "Activate"}
-                            </button>
-                            {walletMsg[w.profile_id] && (
-                              <span className="text-[12px] font-semibold" style={{ color: "#16a34a" }}>{walletMsg[w.profile_id]}</span>
+                {wallets.map((u) => {
+                  const isActive = u.current_balance !== null;
+                  const balance  = u.current_balance ?? 0;
+                  return (
+                    <div key={u.user_id} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-5">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        {/* User info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-[15px] font-semibold text-[#1d1d1f]">{u.user_email}</p>
+                            {!isActive && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#fff7ed] text-[#ea580c] font-semibold">No wallet yet</span>
                             )}
                           </div>
+                          <p className="text-[12px] text-[#aeaeb2] mt-0.5">
+                            {u.profiles.length} profile{u.profiles.length !== 1 ? "s" : ""}: {u.profiles.map((p) => p.name).join(", ")}
+                          </p>
+                          {isActive && (
+                            <p className="text-[13px] mt-1">
+                              Balance: <span className="font-bold text-[#0071e3]">${balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
+                              <span className="text-[#aeaeb2] ml-2">· Initial ${u.initial_balance.toFixed(0)}</span>
+                            </p>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
+
+                        {/* Set balance */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+                            <span className="text-[13px] text-[#6e6e73]">$</span>
+                            <input
+                              type="number" min={0} step={1000}
+                              placeholder={isActive ? balance.toFixed(0) : "10000"}
+                              value={walletInputs[u.user_id] ?? ""}
+                              onChange={(e) => setWalletInputs((prev) => ({ ...prev, [u.user_id]: e.target.value }))}
+                              className="w-28 bg-transparent text-[14px] font-semibold text-[#1d1d1f] focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={() => saveWallet(u.user_id)}
+                            disabled={walletSaving === u.user_id || !walletInputs[u.user_id]}
+                            className="px-4 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                            style={{ background: "#0071e3" }}>
+                            {walletSaving === u.user_id ? "Saving…" : isActive ? "Update Balance" : "Activate Wallet"}
+                          </button>
+                          {walletMsg[u.user_id] && (
+                            <span className="text-[12px] font-semibold" style={{ color: "#16a34a" }}>{walletMsg[u.user_id]}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

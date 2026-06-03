@@ -169,10 +169,10 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
 
 // ── Profile Panel ─────────────────────────────────────────────────────────────
 function ProfilePanel({
-  profile, token, results, scannedAt, loading, onRefresh, onDelete,
+  profile, token, results, scannedAt, loading, userBalance, onRefresh, onDelete,
 }: {
   profile: Profile; token: string; results: MarketResult[]; scannedAt: string | null;
-  loading: boolean; onRefresh: () => void; onDelete: (id: number) => void;
+  loading: boolean; userBalance: number | null; onRefresh: () => void; onDelete: (id: number) => void;
 }) {
   const hurdle = hurdleFor(profile);
   const [expanded, setExpanded] = useState(false);
@@ -181,18 +181,6 @@ function ProfilePanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [buyTarget, setBuyTarget] = useState<MarketResult | null>(null);
-  const [vipBalance, setVipBalance] = useState<number>(10000);
-
-  // Load VIP balance for this profile on mount
-  useEffect(() => {
-    fetch("/api/vip/portfolio", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
-      .then((r) => r.json())
-      .then((json) => {
-        const port = (json.portfolios ?? []).find((p: { profile_id: number; current_balance: number }) => p.profile_id === profile.id);
-        if (port) setVipBalance(port.current_balance);
-      })
-      .catch(() => { /* keep default */ });
-  }, [token, profile.id]);
 
   async function runScan() {
     setScanning(true);
@@ -266,10 +254,6 @@ function ProfilePanel({
                       )}
                     </>
                   )}
-                  {/* VIP wallet balance */}
-                  <span className="text-[11px] px-2 py-0.5 rounded-lg font-semibold ml-1" style={{ background: "#f0fdf4", color: "#16a34a" }}>
-                    💰 ${vipBalance.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} available
-                  </span>
                 </div>
               </div>
             </button>
@@ -468,12 +452,12 @@ function ProfilePanel({
           hurdle_rate={hurdle}
           profile_id={profile.id}
           profile_name={profile.name}
-          available_balance={vipBalance}
+          available_balance={userBalance ?? 10000}
           token={token}
           onClose={() => setBuyTarget(null)}
-          onSuccess={(newBalance) => {
-            setVipBalance(newBalance);
+          onSuccess={() => {
             setBuyTarget(null);
+            onRefresh();
           }}
         />
       )}
@@ -487,6 +471,7 @@ export default function MarketPage() {
   const { profiles, profilesLoaded, userEmail, isSuperuser, refreshProfiles } = useScan();
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [userBalance, setUserBalance] = useState<number | null>(null);
   const [allResults, setAllResults] = useState<Record<number, MarketResult[]>>({});
   const [scannedAts, setScannedAts] = useState<Record<number, string | null>>({});
   const [loadingMap, setLoadingMap] = useState<Record<number, boolean>>({});
@@ -497,8 +482,11 @@ export default function MarketPage() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.replace("/login"); return; }
       setToken(session.access_token);
-      // Force a fresh profile fetch — waits until actual data arrives
       await refreshProfiles();
+      // Load user wallet balance
+      fetch("/api/vip/portfolio", { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then((r) => r.json()).then((d) => { if (d.wallet) setUserBalance(d.wallet.current_balance); })
+        .catch(() => {});
       setReady(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -561,7 +549,7 @@ export default function MarketPage() {
             <Link href="/portfolio"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-colors"
               style={{ background: "#f0fdf4", color: "#16a34a" }}>
-              💰 Portfolio
+              💰 {userBalance !== null ? `$${userBalance.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : "VIP Portfolio"}
             </Link>
             <Link href="/profile" className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f]">My Profiles</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
@@ -618,6 +606,7 @@ export default function MarketPage() {
                   results={allResults[profile.id] ?? []}
                   scannedAt={scannedAts[profile.id] ?? null}
                   loading={loadingMap[profile.id] ?? true}
+                  userBalance={userBalance}
                   onRefresh={() => fetchForProfile(profile, token)}
                   onDelete={handleDelete}
                 />

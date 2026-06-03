@@ -90,7 +90,7 @@ export default function PortfolioPage() {
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-5">
             <Link href="/market" className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f]">← Market</Link>
-            <span className="text-[15px] font-semibold text-[#1d1d1f]">VIP Portfolio</span>
+            <span className="text-[15px] font-semibold text-[#1d1d1f]">Virtual Investment Portfolio (VIP)</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/portfolio/health" className="text-[13px] text-[#0071e3] hover:underline">Health Report →</Link>
