@@ -121,17 +121,17 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
           </div>
 
           {/* HOLD — soft warm amber */}
-          <div className="p-5" style={{ background: "linear-gradient(135deg, #fffef7 0%, #fefce8 100%)", borderRight: "1px solid #fde68a" }}>
+          <div className="p-5" style={{ background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)", borderRight: "1px solid #fdba74" }}>
             <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-[32px] font-bold leading-none" style={{ color: "#d97706" }}>{holds.length}</span>
-              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#d97706" }}>◼ Hold</span>
+              <span className="text-[32px] font-bold leading-none" style={{ color: "#ea580c" }}>{holds.length}</span>
+              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#ea580c" }}>◼ Hold</span>
             </div>
-            <p className="text-[10px] mb-3" style={{ color: "#fcd34d" }}>Monitor before acting</p>
+            <p className="text-[10px] mb-3" style={{ color: "#fed7aa" }}>Monitor before acting</p>
             {holds.length === 0 ? (
-              <p className="text-[11px]" style={{ color: "#fde68a" }}>No hold signals</p>
+              <p className="text-[11px]" style={{ color: "#fdba74" }}>No hold signals</p>
             ) : (
               <div className="flex flex-wrap gap-1">
-                {holds.map((s) => chip(s.symbol, "rgba(217,119,6,0.10)", "#d97706"))}
+                {holds.map((s) => chip(s.symbol, "rgba(234,88,12,0.10)", "#ea580c"))}
               </div>
             )}
           </div>
@@ -237,7 +237,7 @@ function ProfilePanel({
                   ) : (
                     <>
                       {buys.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#1a7f3c" }}>▲ {buys.length} BUY</span>}
-                      {holds.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#a3730a" }}>◼ {holds.length} HOLD</span>}
+                      {holds.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#c2410c" }}>◼ {holds.length} HOLD</span>}
                       {rejects.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#c0392b" }}>▼ {rejects.length} REJECT</span>}
                       {scannedAt && (
                         <span className="text-[10px] text-[#aeaeb2]">
@@ -304,7 +304,7 @@ function ProfilePanel({
                   computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === group
                 );
                 if (groupResults.length === 0) return null;
-                const groupColor = group === "BUY" ? "#1a7f3c" : group === "HOLD" ? "#a3730a" : "#c0392b";
+                const groupColor = group === "BUY" ? "#1a7f3c" : group === "HOLD" ? "#c2410c" : "#c0392b";
                 const groupBg    = group === "BUY" ? "#e3f5e9" : group === "HOLD" ? "#fef6e0" : "#fde8e8";
                 const groupIcon  = group === "BUY" ? "▲" : group === "HOLD" ? "◼" : "▼";
 
@@ -497,7 +497,7 @@ export default function MarketPage() {
           <div className="flex items-center gap-5">
             <span className="text-[13px] text-[#6e6e73] hidden sm:block">{userEmail}</span>
             {isSuperuser && (
-              <Link href="/admin/prompts" className="text-[13px] text-[#a3730a] hover:underline font-medium">Admin</Link>
+              <Link href="/admin/prompts" className="text-[13px] text-[#c2410c] hover:underline font-medium">Admin</Link>
             )}
             <Link href="/profile" className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f]">My Profiles</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}

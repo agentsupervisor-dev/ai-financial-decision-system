@@ -121,7 +121,7 @@ export default function NewProfilePage() {
   return (
     <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-8 h-14 flex items-center justify-between">
           <button onClick={() => step === 2 ? setStep(1) : router.push("/market")}
             className="text-[13px] text-[#0071e3] hover:underline">
             ← {step === 2 ? "Back" : "Cancel"}
@@ -136,7 +136,7 @@ export default function NewProfilePage() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-10 pb-24">
+      <div className="max-w-6xl mx-auto px-8 py-10 pb-24">
 
         {/* STEP 1 — Universe Picker */}
         {step === 1 && (
@@ -147,46 +147,46 @@ export default function NewProfilePage() {
             {error && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600 mb-5">{error}</div>}
 
             <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">By Market Cap</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
               {MARKET_CAP_PRESETS.map((p) => (
                 <button key={p.key} onClick={() => handleSelectUniverse(p.key)}
-                  className="text-left rounded-2xl border-2 p-5 transition-all"
+                  className="text-left rounded-2xl border-2 p-6 transition-all hover:shadow-md"
                   style={{ borderColor: universeKey === p.key ? p.color : "#e5e5ea", background: universeKey === p.key ? p.bg : "#fff" }}>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="text-[17px] font-semibold" style={{ color: p.color }}>{p.label}</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: p.bg, color: p.color }}>{p.count} stocks</span>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <span className="text-[20px] font-bold" style={{ color: p.color }}>{p.label}</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: p.bg, color: p.color }}>{p.count} stocks</span>
                   </div>
-                  <p className="text-[12px] font-medium text-[#6e6e73] mb-0.5">{p.sublabel}</p>
-                  <p className="text-[11px] text-[#aeaeb2] leading-relaxed">{p.description}</p>
+                  <p className="text-[13px] font-medium text-[#6e6e73] mb-1">{p.sublabel}</p>
+                  <p className="text-[12px] text-[#aeaeb2] leading-relaxed">{p.description}</p>
                 </button>
               ))}
             </div>
 
             <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">By Sector</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
               {SECTOR_PRESETS.map((p) => (
                 <button key={p.key} onClick={() => handleSelectUniverse(p.key)}
-                  className="text-left rounded-2xl border-2 p-4 transition-all"
+                  className="text-left rounded-2xl border-2 p-5 transition-all hover:shadow-md"
                   style={{ borderColor: universeKey === p.key ? "#0071e3" : "#e5e5ea", background: universeKey === p.key ? "#f0f6ff" : "#fff" }}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[18px]">{p.icon}</span>
-                    <span className="text-[14px] font-semibold text-[#1d1d1f]">{p.label}</span>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <span className="text-[22px]">{p.icon}</span>
+                    <span className="text-[15px] font-semibold text-[#1d1d1f]">{p.label}</span>
                   </div>
-                  <p className="text-[11px] text-[#aeaeb2] mb-1.5 leading-relaxed">{p.description}</p>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73]">{p.count} stocks</span>
+                  <p className="text-[12px] text-[#aeaeb2] mb-2 leading-relaxed">{p.description}</p>
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] font-medium">{p.count} stocks</span>
                 </button>
               ))}
             </div>
 
             <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">Manual Picks</p>
             <button onClick={() => { setUniverseType("manual"); setUniverseKey("manual"); }}
-              className="w-full text-left rounded-2xl border-2 p-5 transition-all"
+              className="w-full text-left rounded-2xl border-2 p-6 transition-all hover:shadow-md"
               style={{ borderColor: universeKey === "manual" ? "#0071e3" : "#e5e5ea", background: universeKey === "manual" ? "#f0f6ff" : "#fff" }}>
-              <div className="flex items-center gap-3">
-                <span className="text-[24px]">🔍</span>
+              <div className="flex items-center gap-4">
+                <span className="text-[28px]">🔍</span>
                 <div>
-                  <p className="text-[15px] font-semibold text-[#1d1d1f]">Pick Stocks Manually</p>
-                  <p className="text-[12px] text-[#aeaeb2] mt-0.5">Search and add any stocks after creating the profile</p>
+                  <p className="text-[16px] font-semibold text-[#1d1d1f]">Pick Stocks Manually</p>
+                  <p className="text-[13px] text-[#aeaeb2] mt-0.5">Search and add any stocks after creating the profile</p>
                 </div>
               </div>
             </button>
