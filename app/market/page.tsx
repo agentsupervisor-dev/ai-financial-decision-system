@@ -96,22 +96,23 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
           <p className="text-[13px] text-[#aeaeb2]">Click <strong>Scan Now</strong> on any profile below to see your market summary.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 divide-x divide-[#f0f0f0]">
-          {/* BUY */}
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[22px] font-bold" style={{ color: "#1a7f3c" }}>{buys.length}</span>
-              <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#e3f5e9", color: "#1a7f3c" }}>▲ BUY</span>
+        <div className="grid grid-cols-3">
+          {/* BUY — soft sage green */}
+          <div className="p-5" style={{ background: "linear-gradient(135deg, #f6fef9 0%, #edfaf2 100%)", borderRight: "1px solid #d1fae5" }}>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[32px] font-bold leading-none" style={{ color: "#059669" }}>{buys.length}</span>
+              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#059669" }}>▲ Buy</span>
             </div>
+            <p className="text-[10px] mb-3" style={{ color: "#6ee7b7" }}>Stocks above your hurdle</p>
             {buys.length === 0 ? (
-              <p className="text-[11px] text-[#aeaeb2]">No buy signals</p>
+              <p className="text-[11px]" style={{ color: "#a7f3d0" }}>No buy signals</p>
             ) : (
               <div className="space-y-1.5">
                 {Object.entries(buysBySector).map(([sector, symbols]) => (
                   <div key={sector} className="flex items-start gap-2">
-                    <span className="text-[10px] text-[#aeaeb2] w-20 shrink-0 pt-0.5 truncate">{sector}</span>
+                    <span className="text-[10px] w-20 shrink-0 pt-0.5 truncate" style={{ color: "#34d399" }}>{sector}</span>
                     <div className="flex flex-wrap gap-1">
-                      {symbols.map((s) => chip(s, "#e3f5e9", "#1a7f3c"))}
+                      {symbols.map((s) => chip(s, "rgba(16,185,129,0.12)", "#059669"))}
                     </div>
                   </div>
                 ))}
@@ -119,34 +120,36 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
             )}
           </div>
 
-          {/* HOLD */}
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[22px] font-bold" style={{ color: "#a3730a" }}>{holds.length}</span>
-              <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fef6e0", color: "#a3730a" }}>◼ HOLD</span>
+          {/* HOLD — soft warm amber */}
+          <div className="p-5" style={{ background: "linear-gradient(135deg, #fffef7 0%, #fefce8 100%)", borderRight: "1px solid #fde68a" }}>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[32px] font-bold leading-none" style={{ color: "#d97706" }}>{holds.length}</span>
+              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#d97706" }}>◼ Hold</span>
             </div>
+            <p className="text-[10px] mb-3" style={{ color: "#fcd34d" }}>Monitor before acting</p>
             {holds.length === 0 ? (
-              <p className="text-[11px] text-[#aeaeb2]">No hold signals</p>
+              <p className="text-[11px]" style={{ color: "#fde68a" }}>No hold signals</p>
             ) : (
               <div className="flex flex-wrap gap-1">
-                {holds.map((s) => chip(s.symbol, "#fef6e0", "#a3730a"))}
+                {holds.map((s) => chip(s.symbol, "rgba(217,119,6,0.10)", "#d97706"))}
               </div>
             )}
           </div>
 
-          {/* REJECT */}
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[22px] font-bold" style={{ color: "#c0392b" }}>{rejects.length}</span>
-              <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fde8e8", color: "#c0392b" }}>▼ REJECT</span>
+          {/* REJECT — soft blush rose */}
+          <div className="p-5" style={{ background: "linear-gradient(135deg, #fffafa 0%, #fef2f2 100%)" }}>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[32px] font-bold leading-none" style={{ color: "#dc2626" }}>{rejects.length}</span>
+              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#dc2626" }}>▼ Reject</span>
             </div>
+            <p className="text-[10px] mb-3" style={{ color: "#fca5a5" }}>Below your return threshold</p>
             {rejects.length === 0 ? (
-              <p className="text-[11px] text-[#aeaeb2]">No reject signals</p>
+              <p className="text-[11px]" style={{ color: "#fecaca" }}>No reject signals</p>
             ) : (
               <div className="flex flex-wrap gap-1">
-                {rejects.slice(0, 20).map((s) => chip(s.symbol, "#fde8e8", "#c0392b"))}
+                {rejects.slice(0, 20).map((s) => chip(s.symbol, "rgba(220,38,38,0.08)", "#dc2626"))}
                 {rejects.length > 20 && (
-                  <span className="text-[11px] text-[#aeaeb2] self-center">+{rejects.length - 20} more</span>
+                  <span className="text-[11px]" style={{ color: "#fca5a5" }}>+{rejects.length - 20} more</span>
                 )}
               </div>
             )}
