@@ -132,23 +132,42 @@ export default function EditProfilePage() {
 
         {/* Hurdle Rate */}
         <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-5">
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-baseline justify-between mb-5">
             <h2 className="text-[13px] font-semibold text-[#1d1d1f] uppercase tracking-widest">Hurdle Rate Components</h2>
-            <span className="text-[22px] font-semibold" style={{ color: "#0071e3" }}>{totalHurdle.toFixed(1)}%</span>
+            <span className="text-[28px] font-bold" style={{ color: "#0071e3" }}>{totalHurdle.toFixed(1)}%</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-5">
             {([
-              ["inflation",    "Inflation (%)"],
-              ["borrowing",    "Borrowing Cost (%)"],
-              ["index_return", "Index Return (%)"],
-              ["opex",         "OpEx (%)"],
-              ["alpha_target", "Alpha Target (%)"],
-            ] as [keyof ProfileForm, string][]).map(([key, label]) => (
-              <div key={key}>
-                <label className="block text-[12px] text-[#6e6e73] mb-1.5">{label}</label>
-                <input type="number" step="0.1" value={form[key] as number}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
-                  className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-2.5 text-[15px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+              ["inflation",    "Inflation Rate",   "Expected annual inflation",   15 ],
+              ["borrowing",    "Borrowing Cost",   "Cost of capital / loan rate", 25 ],
+              ["index_return", "Index Return",     "Expected S&P 500 return",     25 ],
+              ["opex",         "OpEx / Fees",      "Management fees / expenses",  5  ],
+              ["alpha_target", "Alpha Target",     "Extra return above market",   20 ],
+            ] as [keyof ProfileForm, string, string, number][]).map(([key, label, hint, max]) => (
+              <div key={key} className="flex items-center gap-4">
+                <div className="w-36 shrink-0">
+                  <p className="text-[13px] text-[#1d1d1f] font-medium leading-tight">{label}</p>
+                  <p className="text-[10px] text-[#aeaeb2] mt-0.5">{hint}</p>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="range" min={0} max={max} step={0.5}
+                    value={form[key] as number}
+                    onChange={(e) => setForm((f) => ({ ...f, [key]: parseFloat(e.target.value) }))}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                    style={{ accentColor: "#0071e3" }}
+                  />
+                  <div className="flex justify-between text-[9px] text-[#aeaeb2] mt-0.5 px-0.5">
+                    <span>0%</span><span>{max}%</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <input type="number" step={0.5} min={0} max={max}
+                    value={form[key] as number}
+                    onChange={(e) => setForm((f) => ({ ...f, [key]: Math.min(max, parseFloat(e.target.value) || 0) }))}
+                    className="w-16 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-2 py-1.5 text-[14px] text-right font-semibold focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+                  <span className="text-[13px] text-[#6e6e73]">%</span>
+                </div>
               </div>
             ))}
           </div>
