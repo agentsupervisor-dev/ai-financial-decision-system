@@ -80,39 +80,41 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
 
   return (
     <div className="rounded-2xl border border-black/[0.08] shadow-sm bg-white mb-6 overflow-hidden">
-      {/* Header row */}
-      <div className="px-5 py-3.5 border-b border-[#f0f0f0] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-[15px] font-semibold text-[#1d1d1f]">{greeting} 👋</span>
-          <span className="text-[12px] text-[#6e6e73]">
-            {hasData ? `${total} signals · ${profiles.length} profile${profiles.length !== 1 ? "s" : ""}` : "No scan data yet"}
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-[#f0f0f0] flex items-center justify-between">
+        <div>
+          <span className="text-[20px] font-bold text-[#1d1d1f]">{greeting} 👋</span>
+          <span className="text-[14px] text-[#6e6e73] ml-3">
+            {hasData ? `${total} signals across ${profiles.length} profile${profiles.length !== 1 ? "s" : ""}` : "Run a scan to see your morning summary"}
           </span>
         </div>
-        {hasData && <span className="text-[11px] text-[#aeaeb2]">Auto-scan daily 9 AM UTC</span>}
+        {hasData && <span className="text-[12px] text-[#aeaeb2]">Auto-scan weekdays 9 AM UTC</span>}
       </div>
 
       {!hasData ? (
-        <div className="px-5 py-6 text-center">
-          <p className="text-[13px] text-[#aeaeb2]">Click <strong>Scan Now</strong> on any profile below to see your market summary.</p>
+        <div className="px-6 py-10 text-center">
+          <p className="text-[15px] text-[#aeaeb2]">Click <strong className="text-[#1d1d1f]">Scan Now</strong> on any profile below to see your market summary.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3">
-          {/* BUY — soft sage green */}
-          <div className="p-5" style={{ background: "linear-gradient(135deg, #f6fef9 0%, #edfaf2 100%)", borderRight: "1px solid #d1fae5" }}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-[32px] font-bold leading-none" style={{ color: "#059669" }}>{buys.length}</span>
-              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#059669" }}>▲ Buy</span>
+        <div className="grid grid-cols-3 divide-x divide-[#f0f0f0]">
+          {/* BUY */}
+          <div className="p-6 min-h-[180px]" style={{ background: "linear-gradient(160deg, #f0fdf4 0%, #dcfce7 100%)" }}>
+            <div className="flex items-end gap-3 mb-1">
+              <span className="text-[56px] font-black leading-none" style={{ color: "#16a34a" }}>{buys.length}</span>
+              <div className="mb-2">
+                <span className="block text-[13px] font-bold tracking-wider uppercase" style={{ color: "#16a34a" }}>▲ BUY</span>
+                <span className="block text-[11px] font-medium" style={{ color: "#4ade80" }}>above hurdle rate</span>
+              </div>
             </div>
-            <p className="text-[10px] mb-3" style={{ color: "#6ee7b7" }}>Stocks above your hurdle</p>
             {buys.length === 0 ? (
-              <p className="text-[11px]" style={{ color: "#a7f3d0" }}>No buy signals</p>
+              <p className="text-[13px] mt-4" style={{ color: "#86efac" }}>No buy signals today</p>
             ) : (
-              <div className="space-y-1.5">
+              <div className="mt-3 space-y-2">
                 {Object.entries(buysBySector).map(([sector, symbols]) => (
-                  <div key={sector} className="flex items-start gap-2">
-                    <span className="text-[10px] w-20 shrink-0 pt-0.5 truncate" style={{ color: "#34d399" }}>{sector}</span>
-                    <div className="flex flex-wrap gap-1">
-                      {symbols.map((s) => chip(s, "rgba(16,185,129,0.12)", "#059669"))}
+                  <div key={sector} className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-medium w-24 shrink-0 truncate" style={{ color: "#22c55e" }}>{sector}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {symbols.map((s) => chip(s, "rgba(22,163,74,0.12)", "#15803d"))}
                     </div>
                   </div>
                 ))}
@@ -120,36 +122,40 @@ function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResu
             )}
           </div>
 
-          {/* HOLD — soft warm amber */}
-          <div className="p-5" style={{ background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)", borderRight: "1px solid #fdba74" }}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-[32px] font-bold leading-none" style={{ color: "#ea580c" }}>{holds.length}</span>
-              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#ea580c" }}>◼ Hold</span>
+          {/* HOLD */}
+          <div className="p-6 min-h-[180px]" style={{ background: "linear-gradient(160deg, #fff7ed 0%, #ffedd5 100%)" }}>
+            <div className="flex items-end gap-3 mb-1">
+              <span className="text-[56px] font-black leading-none" style={{ color: "#ea580c" }}>{holds.length}</span>
+              <div className="mb-2">
+                <span className="block text-[13px] font-bold tracking-wider uppercase" style={{ color: "#ea580c" }}>◼ HOLD</span>
+                <span className="block text-[11px] font-medium" style={{ color: "#fb923c" }}>monitor before acting</span>
+              </div>
             </div>
-            <p className="text-[10px] mb-3" style={{ color: "#fed7aa" }}>Monitor before acting</p>
             {holds.length === 0 ? (
-              <p className="text-[11px]" style={{ color: "#fdba74" }}>No hold signals</p>
+              <p className="text-[13px] mt-4" style={{ color: "#fdba74" }}>No hold signals today</p>
             ) : (
-              <div className="flex flex-wrap gap-1">
-                {holds.map((s) => chip(s.symbol, "rgba(234,88,12,0.10)", "#ea580c"))}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {holds.map((s) => chip(s.symbol, "rgba(234,88,12,0.12)", "#c2410c"))}
               </div>
             )}
           </div>
 
-          {/* REJECT — soft blush rose */}
-          <div className="p-5" style={{ background: "linear-gradient(135deg, #fffafa 0%, #fef2f2 100%)" }}>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-[32px] font-bold leading-none" style={{ color: "#dc2626" }}>{rejects.length}</span>
-              <span className="text-[11px] font-semibold tracking-widest uppercase" style={{ color: "#dc2626" }}>▼ Reject</span>
+          {/* REJECT */}
+          <div className="p-6 min-h-[180px]" style={{ background: "linear-gradient(160deg, #fff1f2 0%, #ffe4e6 100%)" }}>
+            <div className="flex items-end gap-3 mb-1">
+              <span className="text-[56px] font-black leading-none" style={{ color: "#dc2626" }}>{rejects.length}</span>
+              <div className="mb-2">
+                <span className="block text-[13px] font-bold tracking-wider uppercase" style={{ color: "#dc2626" }}>▼ REJECT</span>
+                <span className="block text-[11px] font-medium" style={{ color: "#f87171" }}>below return threshold</span>
+              </div>
             </div>
-            <p className="text-[10px] mb-3" style={{ color: "#fca5a5" }}>Below your return threshold</p>
             {rejects.length === 0 ? (
-              <p className="text-[11px]" style={{ color: "#fecaca" }}>No reject signals</p>
+              <p className="text-[13px] mt-4" style={{ color: "#fca5a5" }}>No reject signals today</p>
             ) : (
-              <div className="flex flex-wrap gap-1">
-                {rejects.slice(0, 20).map((s) => chip(s.symbol, "rgba(220,38,38,0.08)", "#dc2626"))}
-                {rejects.length > 20 && (
-                  <span className="text-[11px]" style={{ color: "#fca5a5" }}>+{rejects.length - 20} more</span>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {rejects.slice(0, 30).map((s) => chip(s.symbol, "rgba(220,38,38,0.10)", "#b91c1c"))}
+                {rejects.length > 30 && (
+                  <span className="text-[12px] self-center" style={{ color: "#fca5a5" }}>+{rejects.length - 30} more</span>
                 )}
               </div>
             )}
@@ -222,23 +228,23 @@ function ProfilePanel({
               <span className="text-[15px]">{expanded ? "▼" : "▶"}</span>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[16px] font-semibold text-[#1d1d1f]">{profile.name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] shrink-0">
+                  <span className="text-[20px] font-bold text-[#1d1d1f]">{profile.name}</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#f5f5f7] text-[#6e6e73] font-medium shrink-0">
                     {UNIVERSE_LABELS[profile.universe_key] ?? profile.universe_key}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] shrink-0">{periodLabel}</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#f5f5f7] text-[#6e6e73] font-medium shrink-0">{periodLabel}</span>
                 </div>
                 {/* Signal summary */}
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                   {loading ? (
-                    <span className="text-[11px] text-[#aeaeb2]">Loading…</span>
+                    <span className="text-[13px] text-[#aeaeb2]">Loading…</span>
                   ) : !hasData ? (
-                    <span className="text-[11px] text-[#aeaeb2]">Not scanned yet</span>
+                    <span className="text-[13px] text-[#aeaeb2]">Not scanned yet</span>
                   ) : (
                     <>
-                      {buys.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#1a7f3c" }}>▲ {buys.length} BUY</span>}
-                      {holds.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#c2410c" }}>◼ {holds.length} HOLD</span>}
-                      {rejects.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#c0392b" }}>▼ {rejects.length} REJECT</span>}
+                      {buys.length > 0 && <span className="text-[13px] font-bold" style={{ color: "#16a34a" }}>▲ {buys.length} BUY</span>}
+                      {holds.length > 0 && <span className="text-[13px] font-bold" style={{ color: "#ea580c" }}>◼ {holds.length} HOLD</span>}
+                      {rejects.length > 0 && <span className="text-[13px] font-bold" style={{ color: "#dc2626" }}>▼ {rejects.length} REJECT</span>}
                       {scannedAt && (
                         <span className="text-[10px] text-[#aeaeb2]">
                           · {new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -524,8 +530,8 @@ export default function MarketPage() {
           <>
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div>
-                <h1 className="text-[28px] font-semibold text-[#1d1d1f] tracking-tight">Market Intelligence</h1>
-                <p className="text-[13px] text-[#6e6e73] mt-0.5">AI signals · weekday 9 AM auto-scan</p>
+                <h1 className="text-[38px] font-black text-[#1d1d1f] tracking-tight">Market Intelligence</h1>
+                <p className="text-[14px] text-[#6e6e73] mt-1">AI-powered signals · weekday 9 AM auto-scan</p>
               </div>
               <Link href="/profile/new"
                 className="px-4 py-2 rounded-xl text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
@@ -544,7 +550,7 @@ export default function MarketPage() {
             </div>
 
             <div className={profiles.length === 1
-              ? "space-y-4"
+              ? ""
               : "grid gap-4 grid-cols-1 lg:grid-cols-2"}>
               {profiles.map((profile) => (
                 <ProfilePanel
