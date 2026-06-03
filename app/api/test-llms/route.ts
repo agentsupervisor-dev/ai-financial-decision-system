@@ -29,7 +29,7 @@ async function testGemini() {
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${header}.${claim}.${sig}` }) });
       const tokenData = await tokenRes.json() as { access_token?: string };
       if (!tokenData.access_token) throw new Error(JSON.stringify(tokenData));
-      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.0-flash:generateContent`;
+      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.5-flash:generateContent`;
       const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
       const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? JSON.stringify(data);
@@ -43,7 +43,7 @@ async function testGemini() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, reply: "Neither GOOGLE_APPLICATION_CREDENTIALS nor GEMINI_API_KEY set", via: "none", ms: 0 };
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
     const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? JSON.stringify(data);
     return { ok: reply.includes("OK"), reply: reply.trim(), via: "Google AI Studio (API key)", ms: Date.now() - start };
