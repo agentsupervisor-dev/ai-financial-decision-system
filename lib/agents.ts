@@ -64,7 +64,7 @@ async function callGemini(prompt: string): Promise<string> {
   if (gac.trim().startsWith("{") && project) {
     try {
       const token = await getGCPAccessToken(gac);
-      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.0-flash-001:generateContent`;
+      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.0-flash:generateContent`;
       const res = await fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
