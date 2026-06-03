@@ -433,15 +433,17 @@ export default function MarketPage() {
   const [loadingMap, setLoadingMap] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    if (!profilesLoaded) return;
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get session first, then do a fresh profile fetch so we never show
+    // stale ScanContext state (which can be empty from a previous load)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.replace("/login"); return; }
       setToken(session.access_token);
-      // Defer by one tick so all ScanContext state (profiles array) has settled
-      // before we render content — prevents the flash of empty state
-      setTimeout(() => setReady(true), 0);
+      // Force a fresh profile fetch — waits until actual data arrives
+      await refreshProfiles();
+      setReady(true);
     });
-  }, [profilesLoaded, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchForProfile = useCallback(async (profile: Profile, tok: string) => {
     setLoadingMap((p) => ({ ...p, [profile.id]: true }));
