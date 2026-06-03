@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { callClaude } from "./bedrock";
+import { getGCPAccessToken } from "./gcp";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -19,48 +20,40 @@ export interface TickerAnalysis {
   error?: string;
 }
 
-// ── LLM clients ───────────────────────────────────────────────────────────────
+// ── shared constants ──────────────────────────────────────────────────────────
 
-// Get a short-lived OAuth2 token from a GCP service account JSON string
-async function getGCPAccessToken(serviceAccountJson: string): Promise<string> {
-  const sa = JSON.parse(serviceAccountJson);
-  const now = Math.floor(Date.now() / 1000);
+const HORIZON_SHORT: Record<string, string> = {
+  "1yr": "1 year",
+  "3yr": "3 years",
+  "5yr": "5+ years",
+};
 
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-  const claim = Buffer.from(JSON.stringify({
-    iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/cloud-platform",
-    aud: sa.token_uri ?? "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  })).toString("base64url");
+const HORIZON_LONG: Record<string, string> = {
+  "1yr": "1 year (short-term)",
+  "3yr": "3 years (medium-term)",
+  "5yr": "5+ years (long-term)",
+};
 
-  const { createSign } = await import("crypto");
-  const sign = createSign("RSA-SHA256");
-  sign.update(`${header}.${claim}`);
-  const sig = sign.sign(sa.private_key, "base64url");
+// ── Supabase singleton (service role — server only) ───────────────────────────
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: `${header}.${claim}.${sig}`,
-    }),
-  });
-  const data = await res.json() as { access_token?: string };
-  if (!data.access_token) throw new Error("No access token returned");
-  return data.access_token;
+let _sb: SupabaseClient | null = null;
+function serviceSupabase(): SupabaseClient {
+  if (!_sb) {
+    _sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+  }
+  return _sb;
 }
 
-// Gemini 2.0 Flash — prefers Vertex AI (uses GCP $300 credits) via service account,
-// falls back to Google AI Studio API key, then Claude.
+// ── LLM clients ───────────────────────────────────────────────────────────────
+
 async function callGemini(prompt: string): Promise<string> {
   const gac = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "";
   const project = process.env.GOOGLE_CLOUD_PROJECT;
   const location = process.env.GOOGLE_CLOUD_LOCATION ?? "us-central1";
 
-  // Try Vertex AI using service account JSON stored directly in the env var
   if (gac.trim().startsWith("{") && project) {
     try {
       const token = await getGCPAccessToken(gac);
@@ -74,13 +67,14 @@ async function callGemini(prompt: string): Promise<string> {
         }),
         cache: "no-store",
       });
-      const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
+      if (res.ok) {
+        const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      }
     } catch { /* fall through */ }
   }
 
-  // Fall back to Google AI Studio API key
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
@@ -90,35 +84,30 @@ async function callGemini(prompt: string): Promise<string> {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { maxOutputTokens: 600, temperature: 0.2 },
           }),
           cache: "no-store",
         }
       );
-      const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
+      if (res.ok) {
+        const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      }
     } catch { /* fall through */ }
   }
 
   return callClaude(prompt);
 }
 
-// DeepSeek Chat via OpenRouter (needs OPENROUTER_API_KEY)
 async function callDeepSeek(prompt: string): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    // Fallback to Claude if no OpenRouter key configured
-    return callClaude(prompt);
-  }
+  if (!apiKey) return callClaude(prompt);
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "deepseek/deepseek-chat",
         messages: [{ role: "user", content: prompt }],
@@ -141,21 +130,20 @@ function parseTaggedNumber(text: string, tag: string, fallback = 50): number {
   return match ? Math.min(100, Math.max(0, parseFloat(match[1]))) : fallback;
 }
 
-async function getCustomPrompt(agent: string): Promise<string | null> {
+// Batched prompt fetch: one Supabase query per scan instead of one per agent
+async function getAllCustomPrompts(): Promise<Record<string, string>> {
   try {
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-    const { data } = await sb.from("agent_prompts").select("instructions").eq("agent", agent).single();
-    return data?.instructions ?? null;
-  } catch { return null; }
+    const { data } = await serviceSupabase().from("agent_prompts").select("agent, instructions");
+    if (!data) return {};
+    return Object.fromEntries(data.map((r) => [r.agent, r.instructions]));
+  } catch { return {}; }
 }
 
 // ── FMP data fetch ────────────────────────────────────────────────────────────
 
 async function fetchFMP(path: string): Promise<unknown> {
   const apiKey = process.env.FMP_API_KEY;
+  if (!apiKey) throw new Error("FMP_API_KEY not set");
   const res = await fetch(
     `https://financialmodelingprep.com${path}&apikey=${apiKey}`,
     { cache: "no-store" }
@@ -174,7 +162,10 @@ Analyze:
 3. Structural risks (competitive threats, regulatory, disruption)
 4. Management quality signals from the transcript`;
 
-async function runForensicAgent(ticker: string): Promise<{ score: number; report: string }> {
+async function runForensicAgent(
+  ticker: string,
+  customPrompt: string | undefined,
+): Promise<{ score: number; report: string }> {
   let company: Record<string, unknown> = {};
   let incomeStr = "Not available";
   let transcriptText = "Not available";
@@ -195,8 +186,7 @@ async function runForensicAgent(ticker: string): Promise<{ score: number; report
     transcriptText = t ? String(t.content ?? "").slice(0, 3000) : "Not available";
   } catch { /* use fallback */ }
 
-  const custom = await getCustomPrompt("forensic");
-  const instructions = (custom || FORENSIC_DEFAULT).replace(/\{ticker\}/g, ticker);
+  const instructions = (customPrompt || FORENSIC_DEFAULT).replace(/\{ticker\}/g, ticker);
 
   const prompt = `${instructions}
 
@@ -237,12 +227,15 @@ Consider:
 The investor requires a {hurdle}% annual return to clear their hurdle rate over {horizon}.
 Given macro conditions, assess whether the backdrop supports or hinders achieving this return.`;
 
-async function runMacroAgent(ticker: string, hurdleRate: number, investmentPeriod: string): Promise<{ score: number; report: string }> {
-  const periodMap: Record<string, string> = { "1yr": "1 year", "3yr": "3 years", "5yr": "5+ years" };
-  const horizon = periodMap[investmentPeriod] ?? "3 years";
+async function runMacroAgent(
+  ticker: string,
+  hurdleRate: number,
+  investmentPeriod: string,
+  customPrompt: string | undefined,
+): Promise<{ score: number; report: string }> {
+  const horizon = HORIZON_SHORT[investmentPeriod] ?? "3 years";
 
-  const custom = await getCustomPrompt("macro");
-  const instructions = (custom || MACRO_DEFAULT)
+  const instructions = (customPrompt || MACRO_DEFAULT)
     .replace(/\{ticker\}/g, ticker)
     .replace(/\{horizon\}/g, horizon)
     .replace(/\{hurdle\}/g, String(hurdleRate));
@@ -274,12 +267,15 @@ Analyze {ticker} for:
 The investor's hurdle rate is {hurdle}% per year and investment horizon is {horizon}.
 Estimate the realistic expected annual return if the thesis plays out over {horizon}.`;
 
-async function runAsymmetryAgent(ticker: string, hurdleRate: number, investmentPeriod: string): Promise<{ score: number; expectedReturn: number; report: string }> {
-  const periodMap: Record<string, string> = { "1yr": "1 year", "3yr": "3 years", "5yr": "5+ years" };
-  const horizon = periodMap[investmentPeriod] ?? "3 years";
+async function runAsymmetryAgent(
+  ticker: string,
+  hurdleRate: number,
+  investmentPeriod: string,
+  customPrompt: string | undefined,
+): Promise<{ score: number; expectedReturn: number; report: string }> {
+  const horizon = HORIZON_SHORT[investmentPeriod] ?? "3 years";
 
-  const custom = await getCustomPrompt("asymmetry");
-  const instructions = (custom || ASYMMETRY_DEFAULT)
+  const instructions = (customPrompt || ASYMMETRY_DEFAULT)
     .replace(/\{ticker\}/g, ticker)
     .replace(/\{horizon\}/g, horizon)
     .replace(/\{hurdle\}/g, String(hurdleRate));
@@ -319,8 +315,8 @@ async function runDecisionAgent(
   forensicReport: string,
   macroReport: string,
   asymmetryReport: string,
+  customPrompt: string | undefined,
 ): Promise<{ decision: string; composite: number; confidence: number; summary: string }> {
-  // Rule-based composite and decision (matches Python orchestrator exactly)
   const composite = Math.round((forensicScore * 0.40 + macroScore * 0.30 + asymmetryScore * 0.30) * 10) / 10;
   const spread = Math.max(forensicScore, macroScore, asymmetryScore) - Math.min(forensicScore, macroScore, asymmetryScore);
   const confidence = Math.round(Math.max(0, 100 - spread) * 10) / 10;
@@ -338,11 +334,9 @@ async function runDecisionAgent(
     decision = "HOLD";
   }
 
-  const periodMap: Record<string, string> = { "1yr": "1 year (short-term)", "3yr": "3 years (medium-term)", "5yr": "5+ years (long-term)" };
-  const horizon = periodMap[investmentPeriod] ?? "3 years (medium-term)";
+  const horizon = HORIZON_LONG[investmentPeriod] ?? "3 years (medium-term)";
 
-  const custom = await getCustomPrompt("decision");
-  const instructions = (custom || DECISION_DEFAULT)
+  const instructions = (customPrompt || DECISION_DEFAULT)
     .replace(/\{ticker\}/g, ticker)
     .replace(/\{decision\}/g, decision)
     .replace(/\{horizon\}/g, horizon);
@@ -394,12 +388,14 @@ export async function analyzeTicker(
   hurdleRate: number,
   investmentPeriod: string,
 ): Promise<TickerAnalysis> {
+  // One Supabase round-trip for all 4 agent prompts
+  const prompts = await getAllCustomPrompts();
+
   try {
-    // Run Forensic, Macro, Asymmetry in parallel
     const [forensic, macro, asymmetry] = await Promise.all([
-      runForensicAgent(ticker),
-      runMacroAgent(ticker, hurdleRate, investmentPeriod),
-      runAsymmetryAgent(ticker, hurdleRate, investmentPeriod),
+      runForensicAgent(ticker, prompts["forensic"]),
+      runMacroAgent(ticker, hurdleRate, investmentPeriod, prompts["macro"]),
+      runAsymmetryAgent(ticker, hurdleRate, investmentPeriod, prompts["asymmetry"]),
     ]);
 
     const decision = await runDecisionAgent(
@@ -407,6 +403,7 @@ export async function analyzeTicker(
       forensic.score, macro.score, asymmetry.score,
       asymmetry.expectedReturn,
       forensic.report, macro.report, asymmetry.report,
+      prompts["decision"],
     );
 
     const excessReturn = Math.round((asymmetry.expectedReturn - hurdleRate) * 100) / 100;

@@ -1,7 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { callClaude } from "@/lib/bedrock";
+import { getGCPAccessToken } from "@/lib/gcp";
 
 const PING = "Reply with exactly: OK";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 async function testClaude() {
   const start = Date.now();
@@ -15,22 +18,19 @@ async function testGemini() {
   const location = process.env.GOOGLE_CLOUD_LOCATION ?? "us-central1";
   const start = Date.now();
 
-  // Try Vertex AI first (uses GCP $300 credits)
   if (gac.trim().startsWith("{") && project) {
     try {
-      const sa = JSON.parse(gac);
-      const now = Math.floor(Date.now() / 1000);
-      const { createSign } = await import("crypto");
-      const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-      const claim = Buffer.from(JSON.stringify({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/cloud-platform", aud: sa.token_uri ?? "https://oauth2.googleapis.com/token", exp: now + 3600, iat: now })).toString("base64url");
-      const sign = createSign("RSA-SHA256");
-      sign.update(`${header}.${claim}`);
-      const sig = sign.sign(sa.private_key, "base64url");
-      const tokenRes = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${header}.${claim}.${sig}` }) });
-      const tokenData = await tokenRes.json() as { access_token?: string };
-      if (!tokenData.access_token) throw new Error(JSON.stringify(tokenData));
-      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.5-flash:generateContent`;
-      const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
+      const token = await getGCPAccessToken(gac);
+      const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: PING }] }],
+          generationConfig: { maxOutputTokens: 10 },
+        }),
+        cache: "no-store",
+      });
       const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? JSON.stringify(data);
       return { ok: reply.includes("OK"), reply: reply.trim(), via: "Vertex AI (GCP credits)", ms: Date.now() - start };
@@ -39,11 +39,21 @@ async function testGemini() {
     }
   }
 
-  // Fall back to Google AI Studio API key
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { ok: false, reply: "Neither GOOGLE_APPLICATION_CREDENTIALS nor GEMINI_API_KEY set", via: "none", ms: 0 };
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: PING }] }], generationConfig: { maxOutputTokens: 10 } }), cache: "no-store" });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: PING }] }],
+          generationConfig: { maxOutputTokens: 10 },
+        }),
+        cache: "no-store",
+      }
+    );
     const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[] };
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? JSON.stringify(data);
     return { ok: reply.includes("OK"), reply: reply.trim(), via: "Google AI Studio (API key)", ms: Date.now() - start };
@@ -71,11 +81,21 @@ async function testDeepSeek() {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Require a valid logged-in session
+  const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const [claude, gemini, deepseek] = await Promise.all([testClaude(), testGemini(), testDeepSeek()]);
   return NextResponse.json({
-    claude:   { model: "Claude Haiku 4.5 (Bedrock)",      ...claude },
-    gemini:   { model: "Gemini 2.0 Flash (Google AI)",    ...gemini },
-    deepseek: { model: "DeepSeek Chat (OpenRouter)",      ...deepseek },
+    claude:   { model: "Claude Haiku 4.5 (Bedrock)",        ...claude },
+    gemini:   { model: `Gemini 2.5 Flash (Vertex AI)`,      ...gemini },
+    deepseek: { model: "DeepSeek Chat (OpenRouter)",         ...deepseek },
   });
 }

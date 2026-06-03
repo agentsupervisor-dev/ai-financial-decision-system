@@ -82,7 +82,6 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const [agentStatuses, setAgentStatuses] = useState<Record<number, AgentStatuses>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshProfiles = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -116,7 +115,6 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const decisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     if (decisionTimerRef.current) { clearTimeout(decisionTimerRef.current); decisionTimerRef.current = null; }
   }, []);
 
