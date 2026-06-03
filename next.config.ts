@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   experimental: {
     staleTimes: {
       dynamic: 0, // disable router cache for all pages
-      static: 0,
+      static: 30,
     },
   },
 };
