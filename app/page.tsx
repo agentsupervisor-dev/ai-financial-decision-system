@@ -52,11 +52,12 @@ export default function Home() {
   const { profiles, userEmail, isSuperuser, profilesLoaded, scans, startScan } = useScan();
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
-  // Auth guard — redirect to login if no session once profiles have been checked
+  // Redirect to /market (new main landing page)
   useEffect(() => {
     if (!profilesLoaded) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) router.replace("/login");
+      else router.replace("/market");
     });
   }, [profilesLoaded, router]);
 

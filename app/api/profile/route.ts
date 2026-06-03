@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, investment_period, inflation, borrowing, index_return, opex, alpha_target } = body;
+  const { name, investment_period, inflation, borrowing, index_return, opex, alpha_target, universe_type, universe_key } = body;
 
   const profileName = (name || "My Portfolio").trim();
 
@@ -70,6 +70,8 @@ export async function POST(req: NextRequest) {
       index_return,
       opex,
       alpha_target,
+      universe_type: universe_type ?? "preset",
+      universe_key: universe_key ?? "mega10",
     })
     .select()
     .single();

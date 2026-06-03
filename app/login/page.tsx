@@ -17,13 +17,13 @@ export default function LoginPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!isMounted) return;
       if (session?.user?.email) {
-        router.replace("/");
+        router.replace("/market");
       }
     }
     loadSession();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
-        router.replace("/");
+        router.replace("/market");
       }
     });
     return () => { isMounted = false; listener?.subscription.unsubscribe(); };

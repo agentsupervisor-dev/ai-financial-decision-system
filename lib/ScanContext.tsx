@@ -12,6 +12,8 @@ export interface Profile {
   index_return: number;
   opex: number;
   alpha_target: number;
+  universe_type: string;
+  universe_key: string;
 }
 
 export interface StockResult {
