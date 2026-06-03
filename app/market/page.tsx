@@ -427,6 +427,7 @@ export default function MarketPage() {
   const router = useRouter();
   const { profiles, profilesLoaded, userEmail, isSuperuser, refreshProfiles } = useScan();
   const [token, setToken] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const [allResults, setAllResults] = useState<Record<number, MarketResult[]>>({});
   const [scannedAts, setScannedAts] = useState<Record<number, string | null>>({});
   const [loadingMap, setLoadingMap] = useState<Record<number, boolean>>({});
@@ -436,6 +437,9 @@ export default function MarketPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace("/login"); return; }
       setToken(session.access_token);
+      // Defer by one tick so all ScanContext state (profiles array) has settled
+      // before we render content — prevents the flash of empty state
+      setTimeout(() => setReady(true), 0);
     });
   }, [profilesLoaded, router]);
 
@@ -465,10 +469,20 @@ export default function MarketPage() {
     setScannedAts((p) => { const n = { ...p }; delete n[profileId]; return n; });
   }
 
-  if (!profilesLoaded || !token) {
+  if (!profilesLoaded || !token || !ready) {
     return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center" style={APPLE}>
-        <p className="text-[#6e6e73] text-[15px]">Loading…</p>
+      <div className="min-h-screen bg-[#f5f5f7] flex flex-col" style={APPLE}>
+        <nav className="bg-[rgba(245,245,247,0.9)] border-b border-black/[0.06] h-14" />
+        <div className="max-w-7xl mx-auto px-6 py-8 w-full flex-1">
+          {/* Skeleton */}
+          <div className="h-8 w-56 bg-[#e5e5ea] rounded-xl mb-2 animate-pulse" />
+          <div className="h-4 w-72 bg-[#f0f0f0] rounded-lg mb-6 animate-pulse" />
+          <div className="rounded-2xl border border-black/[0.06] bg-white h-40 mb-6 animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-black/[0.06] bg-white h-24 animate-pulse" />
+            <div className="rounded-2xl border border-black/[0.06] bg-white h-24 animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }
