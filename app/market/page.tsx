@@ -9,34 +9,18 @@ import { useScan, Profile } from "@/lib/ScanContext";
 const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" };
 
 const UNIVERSE_LABELS: Record<string, string> = {
-  mega10:            "MEGA Cap Top 10",
-  nasdaq100:         "NASDAQ 100 (Top 25)",
-  sp500:             "S&P 500 (Top 30)",
-  sector_tech:       "Technology",
-  sector_health:     "Healthcare",
-  sector_finance:    "Financial",
-  sector_energy:     "Energy",
-  sector_consumer:   "Consumer",
-  sector_industrial: "Industrial",
-  manual:            "Manual Picks",
+  mega10: "MEGA Cap Top 10", nasdaq100: "NASDAQ 100", sp500: "S&P 500 Top 30",
+  sector_tech: "Technology", sector_health: "Healthcare", sector_finance: "Financial",
+  sector_energy: "Energy", sector_consumer: "Consumer", sector_industrial: "Industrial",
+  manual: "Manual Picks",
 };
 
 interface MarketResult {
-  symbol: string;
-  company_name: string;
-  sector: string;
-  exchange: string;
-  price: number | null;
-  change_pct: number | null;
-  forensic_score: number | null;
-  macro_score: number | null;
-  asymmetry_score: number | null;
-  composite_score: number | null;
-  confidence: number | null;
-  expected_return: number | null;
-  decision_summary: string | null;
-  error: string | null;
-  scanned_at: string | null;
+  symbol: string; company_name: string; sector: string; exchange: string;
+  price: number | null; change_pct: number | null;
+  forensic_score: number | null; macro_score: number | null; asymmetry_score: number | null;
+  composite_score: number | null; confidence: number | null; expected_return: number | null;
+  decision_summary: string | null; error: string | null; scanned_at: string | null;
 }
 
 function hurdleFor(p: Profile) {
@@ -55,159 +39,135 @@ function computeDecision(
   return "HOLD";
 }
 
-function DecisionBadge({ decision }: { decision: "BUY" | "HOLD" | "REJECT" | null }) {
-  if (!decision) return <span className="text-[12px] text-[#aeaeb2]">No scan yet</span>;
-  const cfg = {
-    BUY:    { bg: "#e3f5e9", color: "#1a7f3c", icon: "▲" },
-    HOLD:   { bg: "#fef6e0", color: "#a3730a", icon: "◼" },
-    REJECT: { bg: "#fde8e8", color: "#c0392b", icon: "▼" },
-  }[decision];
+function chip(symbol: string, bg: string, color: string) {
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[12px] font-semibold tracking-wider"
-      style={{ background: cfg.bg, color: cfg.color }}>{cfg.icon} {decision}</span>
-  );
-}
-
-function ScoreBar({ label, score }: { label: string; score: number | null }) {
-  if (score === null) return null;
-  const color = score >= 65 ? "#34c759" : score >= 45 ? "#ff9f0a" : "#ff3b30";
-  return (
-    <div className="mb-2">
-      <div className="flex justify-between text-[11px] mb-1">
-        <span className="text-[#6e6e73]">{label}</span>
-        <span className="font-medium text-[#1d1d1f]">{score.toFixed(1)}</span>
-      </div>
-      <div className="h-1 bg-[#e5e5ea] rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, background: color }} />
-      </div>
-    </div>
+    <span key={symbol} className="inline-block text-[11px] font-semibold px-1.5 py-0.5 rounded"
+      style={{ background: bg, color }}>{symbol}</span>
   );
 }
 
 // ── Summary Section ───────────────────────────────────────────────────────────
-
 function SummarySection({ profiles, allResults }: { profiles: Profile[]; allResults: Record<number, MarketResult[]> }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  // Aggregate across all profiles — deduplicate stocks, use the first profile's hurdle
-  const stockDecisions: { symbol: string; company_name: string; sector: string; decision: "BUY" | "HOLD" | "REJECT"; profile_name: string }[] = [];
+  type Signal = { symbol: string; company_name: string; sector: string; profile_name: string };
+  const buys: Signal[] = [], holds: Signal[] = [], rejects: Signal[] = [];
   const seen = new Set<string>();
 
   for (const profile of profiles) {
     const results = allResults[profile.id] ?? [];
     const hurdle = hurdleFor(profile);
     for (const r of results) {
-      if (r.scanned_at === null) continue;
-      const decision = computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period);
-      if (!decision) continue;
+      if (!r.scanned_at) continue;
       const key = `${profile.id}-${r.symbol}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      stockDecisions.push({ symbol: r.symbol, company_name: r.company_name, sector: r.sector, decision, profile_name: profile.name });
+      const d = computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period);
+      const sig = { symbol: r.symbol, company_name: r.company_name, sector: r.sector, profile_name: profile.name };
+      if (d === "BUY") buys.push(sig);
+      else if (d === "HOLD") holds.push(sig);
+      else if (d === "REJECT") rejects.push(sig);
     }
   }
 
-  const buys    = stockDecisions.filter((s) => s.decision === "BUY");
-  const holds   = stockDecisions.filter((s) => s.decision === "HOLD");
-  const rejects = stockDecisions.filter((s) => s.decision === "REJECT");
+  const total = buys.length + holds.length + rejects.length;
+  const hasData = total > 0;
 
   // Group buys by sector
   const buysBySector = buys.reduce((acc, s) => {
-    acc[s.sector] = acc[s.sector] ? [...acc[s.sector], s.symbol] : [s.symbol];
-    return acc;
+    acc[s.sector] = [...(acc[s.sector] ?? []), s.symbol]; return acc;
   }, {} as Record<string, string[]>);
 
-  const hasData = stockDecisions.length > 0;
-
   return (
-    <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-8">
-      <div className="flex items-start justify-between mb-5">
-        <div>
-          <h2 className="text-[20px] font-semibold text-[#1d1d1f]">{greeting} 👋</h2>
-          <p className="text-[13px] text-[#6e6e73] mt-0.5">
-            {hasData
-              ? `Here's your market snapshot across ${profiles.length} profile${profiles.length !== 1 ? "s" : ""}`
-              : "Run a scan to see your market summary"}
-          </p>
+    <div className="rounded-2xl border border-black/[0.08] shadow-sm bg-white mb-6 overflow-hidden">
+      {/* Header row */}
+      <div className="px-5 py-3.5 border-b border-[#f0f0f0] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-[15px] font-semibold text-[#1d1d1f]">{greeting} 👋</span>
+          <span className="text-[12px] text-[#6e6e73]">
+            {hasData ? `${total} signals · ${profiles.length} profile${profiles.length !== 1 ? "s" : ""}` : "No scan data yet"}
+          </span>
         </div>
-        {hasData && (
-          <span className="text-[11px] text-[#aeaeb2]">{stockDecisions.length} signals total</span>
-        )}
+        {hasData && <span className="text-[11px] text-[#aeaeb2]">Auto-scan daily 9 AM UTC</span>}
       </div>
 
       {!hasData ? (
-        <p className="text-[13px] text-[#aeaeb2] text-center py-4">No scan data yet — click Scan Now on any profile below.</p>
+        <div className="px-5 py-6 text-center">
+          <p className="text-[13px] text-[#aeaeb2]">Click <strong>Scan Now</strong> on any profile below to see your market summary.</p>
+        </div>
       ) : (
-        <>
-          {/* Signal counts */}
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            {[
-              { label: "BUY",    count: buys.length,    bg: "#e3f5e9", color: "#1a7f3c", icon: "▲" },
-              { label: "HOLD",   count: holds.length,   bg: "#fef6e0", color: "#a3730a", icon: "◼" },
-              { label: "REJECT", count: rejects.length, bg: "#fde8e8", color: "#c0392b", icon: "▼" },
-            ].map(({ label, count, bg, color, icon }) => (
-              <div key={label} className="rounded-xl p-4 text-center" style={{ background: bg }}>
-                <p className="text-[28px] font-semibold" style={{ color }}>{count}</p>
-                <p className="text-[12px] font-semibold mt-0.5" style={{ color }}>{icon} {label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* BUY breakdown by sector */}
-          {buys.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">BUY opportunities by sector</p>
+        <div className="grid grid-cols-3 divide-x divide-[#f0f0f0]">
+          {/* BUY */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[22px] font-bold" style={{ color: "#1a7f3c" }}>{buys.length}</span>
+              <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#e3f5e9", color: "#1a7f3c" }}>▲ BUY</span>
+            </div>
+            {buys.length === 0 ? (
+              <p className="text-[11px] text-[#aeaeb2]">No buy signals</p>
+            ) : (
               <div className="space-y-1.5">
                 {Object.entries(buysBySector).map(([sector, symbols]) => (
-                  <div key={sector} className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[12px] text-[#6e6e73] min-w-[100px]">{sector}</span>
-                    <div className="flex gap-1 flex-wrap">
-                      {symbols.map((sym) => (
-                        <span key={sym} className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ background: "#e3f5e9", color: "#1a7f3c" }}>{sym}</span>
-                      ))}
+                  <div key={sector} className="flex items-start gap-2">
+                    <span className="text-[10px] text-[#aeaeb2] w-20 shrink-0 pt-0.5 truncate">{sector}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {symbols.map((s) => chip(s, "#e3f5e9", "#1a7f3c"))}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* HOLD/REJECT tickers compact */}
-          {holds.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
-              <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">Hold</p>
-              <div className="flex gap-1 flex-wrap">
-                {holds.map((s) => (
-                  <span key={`${s.profile_name}-${s.symbol}`} className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                    style={{ background: "#fef6e0", color: "#a3730a" }}>{s.symbol}</span>
-                ))}
-              </div>
+          {/* HOLD */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[22px] font-bold" style={{ color: "#a3730a" }}>{holds.length}</span>
+              <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fef6e0", color: "#a3730a" }}>◼ HOLD</span>
             </div>
-          )}
-        </>
+            {holds.length === 0 ? (
+              <p className="text-[11px] text-[#aeaeb2]">No hold signals</p>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {holds.map((s) => chip(s.symbol, "#fef6e0", "#a3730a"))}
+              </div>
+            )}
+          </div>
+
+          {/* REJECT */}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[22px] font-bold" style={{ color: "#c0392b" }}>{rejects.length}</span>
+              <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fde8e8", color: "#c0392b" }}>▼ REJECT</span>
+            </div>
+            {rejects.length === 0 ? (
+              <p className="text-[11px] text-[#aeaeb2]">No reject signals</p>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {rejects.slice(0, 20).map((s) => chip(s.symbol, "#fde8e8", "#c0392b"))}
+                {rejects.length > 20 && (
+                  <span className="text-[11px] text-[#aeaeb2] self-center">+{rejects.length - 20} more</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
 // ── Profile Panel ─────────────────────────────────────────────────────────────
-
 function ProfilePanel({
-  profile, token, results, scannedAt, loading,
-  onRefresh, onDelete,
+  profile, token, results, scannedAt, loading, onRefresh, onDelete,
 }: {
-  profile: Profile;
-  token: string;
-  results: MarketResult[];
-  scannedAt: string | null;
-  loading: boolean;
-  onRefresh: () => void;
-  onDelete: (id: number) => void;
+  profile: Profile; token: string; results: MarketResult[]; scannedAt: string | null;
+  loading: boolean; onRefresh: () => void; onDelete: (id: number) => void;
 }) {
   const hurdle = hurdleFor(profile);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [expandedStock, setExpandedStock] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -226,58 +186,84 @@ function ProfilePanel({
   async function handleDelete() {
     setDeleting(true);
     await fetch(`/api/profile/${profile.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      method: "DELETE", headers: { Authorization: `Bearer ${token}` },
     });
     onDelete(profile.id);
   }
 
-  const noResults = results.every((r) => r.scanned_at === null);
-  const buy    = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "BUY").length;
-  const hold   = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "HOLD").length;
-  const reject = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "REJECT").length;
+  // Sort: BUY → HOLD → REJECT → no data
+  const ORDER = { BUY: 0, HOLD: 1, REJECT: 2, null: 3 };
+  const sortedResults = [...results].sort((a, b) => {
+    const da = computeDecision(a.composite_score, a.confidence, a.expected_return, hurdle, profile.investment_period);
+    const db = computeDecision(b.composite_score, b.confidence, b.expected_return, hurdle, profile.investment_period);
+    return (ORDER[da ?? "null"] ?? 3) - (ORDER[db ?? "null"] ?? 3);
+  });
+
+  const buys    = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "BUY");
+  const holds   = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "HOLD");
+  const rejects = results.filter((r) => computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === "REJECT");
+  const hasData = results.some((r) => r.scanned_at !== null);
+
+  const periodLabel = profile.investment_period === "1yr" ? "1yr" : profile.investment_period === "3yr" ? "3yr" : "5yr+";
 
   return (
-    <div className="mb-8">
-      {/* Profile header */}
-      <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-2">
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h2 className="text-[20px] font-semibold text-[#1d1d1f]">{profile.name}</h2>
-              <span className="text-[11px] px-2 py-0.5 rounded-md bg-[#f5f5f7] text-[#6e6e73] font-medium">
-                {UNIVERSE_LABELS[profile.universe_key] ?? profile.universe_key}
-              </span>
-            </div>
-            <p className="text-[12px] text-[#6e6e73]">
-              {profile.investment_period === "1yr" ? "Short-term · 1 yr" : profile.investment_period === "3yr" ? "Medium-term · 3 yrs" : "Long-term · 5+ yrs"}
-              {scannedAt && ` · Scanned ${new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
-            </p>
-            {!noResults && (
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {buy    > 0 && <span className="text-[12px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "#e3f5e9", color: "#1a7f3c" }}>▲ {buy} BUY</span>}
-                {hold   > 0 && <span className="text-[12px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "#fef6e0", color: "#a3730a" }}>◼ {hold} HOLD</span>}
-                {reject > 0 && <span className="text-[12px] font-semibold px-2 py-0.5 rounded-md" style={{ background: "#fde8e8", color: "#c0392b" }}>▼ {reject} REJECT</span>}
+    <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm mb-4 overflow-hidden">
+      {/* Header row — always visible */}
+      <div className="px-5 py-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Left: profile info */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity min-w-0">
+              <span className="text-[15px]">{expanded ? "▼" : "▶"}</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[16px] font-semibold text-[#1d1d1f]">{profile.name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] shrink-0">
+                    {UNIVERSE_LABELS[profile.universe_key] ?? profile.universe_key}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] shrink-0">{periodLabel}</span>
+                </div>
+                {/* Signal summary */}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {loading ? (
+                    <span className="text-[11px] text-[#aeaeb2]">Loading…</span>
+                  ) : !hasData ? (
+                    <span className="text-[11px] text-[#aeaeb2]">Not scanned yet</span>
+                  ) : (
+                    <>
+                      {buys.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#1a7f3c" }}>▲ {buys.length} BUY</span>}
+                      {holds.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#a3730a" }}>◼ {holds.length} HOLD</span>}
+                      {rejects.length > 0 && <span className="text-[11px] font-semibold" style={{ color: "#c0392b" }}>▼ {rejects.length} REJECT</span>}
+                      {scannedAt && (
+                        <span className="text-[10px] text-[#aeaeb2]">
+                          · {new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            )}
+            </button>
           </div>
 
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className="text-right">
-              <p className="text-[11px] text-[#aeaeb2]">Hurdle Rate</p>
-              <p className="text-[24px] font-semibold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
+          {/* Right: hurdle rate + actions */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] text-[#aeaeb2]">Hurdle</p>
+              <p className="text-[18px] font-semibold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <Link href={`/profile/${profile.id}`}
-                className="px-3 py-1.5 rounded-xl text-[12px] font-medium text-[#6e6e73] bg-[#f5f5f7] hover:bg-[#e5e5ea] transition-colors">
+                className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-[#6e6e73] bg-[#f5f5f7] hover:bg-[#e5e5ea] transition-colors">
                 Edit
               </Link>
               <button onClick={() => setConfirmDelete(true)}
-                className="px-3 py-1.5 rounded-xl text-[12px] font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
                 Delete
               </button>
               <button onClick={runScan} disabled={scanning || loading}
-                className="px-4 py-1.5 rounded-xl text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ background: "#0071e3" }}>
                 {scanning ? "Scanning…" : "Scan Now"}
               </button>
@@ -287,13 +273,13 @@ function ProfilePanel({
 
         {/* Delete confirm */}
         {confirmDelete && (
-          <div className="mt-4 pt-4 border-t border-[#f0f0f0] flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[13px] text-[#3a3a3c]">Delete <strong>{profile.name}</strong>? This cannot be undone.</p>
+          <div className="mt-3 pt-3 border-t border-[#f0f0f0] flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-[12px] text-[#3a3a3c]">Delete <strong>{profile.name}</strong>? This cannot be undone.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmDelete(false)}
-                className="px-4 py-2 rounded-xl text-[13px] font-medium text-[#6e6e73] bg-[#f5f5f7]">Cancel</button>
+                className="px-3 py-1.5 rounded-lg text-[12px] font-medium text-[#6e6e73] bg-[#f5f5f7]">Cancel</button>
               <button onClick={handleDelete} disabled={deleting}
-                className="px-4 py-2 rounded-xl text-[13px] font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-40">
+                className="px-3 py-1.5 rounded-lg text-[12px] font-medium text-white bg-red-500 disabled:opacity-40">
                 {deleting ? "Deleting…" : "Yes, Delete"}
               </button>
             </div>
@@ -301,105 +287,140 @@ function ProfilePanel({
         )}
       </div>
 
-      {loading && <p className="text-center text-[13px] text-[#aeaeb2] py-4">Loading…</p>}
+      {/* Expanded: stock list sorted BUY → HOLD → REJECT */}
+      {expanded && (
+        <div className="border-t border-[#f0f0f0]">
+          {!hasData ? (
+            <p className="text-[12px] text-[#aeaeb2] text-center py-5">No scan data — click Scan Now.</p>
+          ) : (
+            <div>
+              {/* Group headers */}
+              {(["BUY", "HOLD", "REJECT"] as const).map((group) => {
+                const groupResults = sortedResults.filter((r) =>
+                  computeDecision(r.composite_score, r.confidence, r.expected_return, hurdle, profile.investment_period) === group
+                );
+                if (groupResults.length === 0) return null;
+                const groupColor = group === "BUY" ? "#1a7f3c" : group === "HOLD" ? "#a3730a" : "#c0392b";
+                const groupBg    = group === "BUY" ? "#e3f5e9" : group === "HOLD" ? "#fef6e0" : "#fde8e8";
+                const groupIcon  = group === "BUY" ? "▲" : group === "HOLD" ? "◼" : "▼";
 
-      {!loading && noResults && (
-        <div className="bg-white rounded-2xl border border-black/[0.08] p-6 text-center">
-          <p className="text-[13px] text-[#6e6e73]">No scan results yet — click <strong>Scan Now</strong> to analyse these stocks.</p>
-        </div>
-      )}
-
-      {/* Stock rows */}
-      {!loading && !noResults && (
-        <div className="space-y-2">
-          {results.map((stock) => {
-            const decision = computeDecision(stock.composite_score, stock.confidence, stock.expected_return, hurdle, profile.investment_period);
-            const excess = stock.expected_return != null ? stock.expected_return - hurdle : null;
-            const isExpanded = expanded === stock.symbol;
-
-            return (
-              <div key={stock.symbol} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm overflow-hidden">
-                <button className="w-full text-left px-6 py-4 hover:bg-[#fafafa] transition-colors"
-                  onClick={() => setExpanded(isExpanded ? null : stock.symbol)}>
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[17px] font-semibold text-[#1d1d1f]">{stock.symbol}</span>
-                          <span className="text-[10px] text-[#aeaeb2] hidden sm:block">{stock.exchange}</span>
-                        </div>
-                        <p className="text-[11px] text-[#6e6e73] truncate max-w-[180px]">{stock.company_name}</p>
-                      </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] hidden sm:block">{stock.sector}</span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-[17px] font-semibold text-[#1d1d1f]">
-                        {stock.price != null ? `$${stock.price.toFixed(2)}` : "—"}
+                return (
+                  <div key={group}>
+                    {/* Group label */}
+                    <div className="px-5 py-2 flex items-center gap-2" style={{ background: groupBg }}>
+                      <span className="text-[11px] font-bold tracking-wider" style={{ color: groupColor }}>
+                        {groupIcon} {group} ({groupResults.length})
                       </span>
-                      {stock.change_pct != null && (
-                        <span className="text-[12px] font-medium" style={{ color: stock.change_pct >= 0 ? "#34c759" : "#ff3b30" }}>
-                          {stock.change_pct >= 0 ? "+" : ""}{stock.change_pct.toFixed(2)}%
-                        </span>
-                      )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      {stock.composite_score != null && (
-                        <span className="text-[12px] text-[#6e6e73] hidden sm:block">
-                          Composite <span className="font-semibold text-[#1d1d1f]">{stock.composite_score.toFixed(1)}</span>
-                        </span>
-                      )}
-                      <DecisionBadge decision={decision} />
-                      <span className="text-[#aeaeb2] text-[11px]">{isExpanded ? "▲" : "▼"}</span>
-                    </div>
-                  </div>
-                </button>
+                    {/* Stock rows */}
+                    {groupResults.map((stock) => {
+                      const isOpen = expandedStock === `${profile.id}-${stock.symbol}`;
+                      const excess = stock.expected_return != null ? stock.expected_return - hurdle : null;
 
-                {isExpanded && (
-                  <div className="px-6 pb-6 border-t border-[#f0f0f0]">
-                    {stock.composite_score === null ? (
-                      <p className="mt-4 text-[13px] text-[#6e6e73] text-center">No AI scores yet.</p>
-                    ) : (
-                      <div className="mt-5 grid sm:grid-cols-2 gap-6">
-                        <div>
-                          <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">Agent Scores</p>
-                          <ScoreBar label="Forensic — Business Moat (Claude)"  score={stock.forensic_score} />
-                          <ScoreBar label="Macro — Economic Backdrop (Gemini)" score={stock.macro_score} />
-                          <ScoreBar label="Asymmetry — Risk/Reward (DeepSeek)" score={stock.asymmetry_score} />
-                          <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
-                            <ScoreBar label="Composite (40 / 30 / 30)" score={stock.composite_score} />
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">
-                            Hurdle Analysis · {hurdle.toFixed(1)}% required
-                          </p>
-                          <div className="space-y-2">
-                            {[
-                              ["Expected Return", `${stock.expected_return?.toFixed(1) ?? "—"}%`, stock.expected_return != null ? (stock.expected_return >= hurdle ? "#34c759" : "#ff3b30") : "#6e6e73"],
-                              ["Hurdle Rate",     `${hurdle.toFixed(1)}%`,                        "#1d1d1f"],
-                              ["Excess Return",   excess != null ? `${excess >= 0 ? "+" : ""}${excess.toFixed(1)}%` : "—", excess != null ? (excess >= 0 ? "#34c759" : "#ff3b30") : "#6e6e73"],
-                              ["Confidence",      `${stock.confidence?.toFixed(1) ?? "—"}%`,      "#1d1d1f"],
-                            ].map(([label, value, color]) => (
-                              <div key={label as string} className="flex justify-between">
-                                <span className="text-[12px] text-[#6e6e73]">{label as string}</span>
-                                <span className="text-[13px] font-semibold" style={{ color: color as string }}>{value as string}</span>
+                      return (
+                        <div key={stock.symbol} className="border-b border-[#f0f0f0] last:border-0">
+                          {/* Compact row */}
+                          <button
+                            className="w-full text-left px-5 py-3 hover:bg-[#fafafa] transition-colors"
+                            onClick={() => setExpandedStock(isOpen ? null : `${profile.id}-${stock.symbol}`)}>
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                              {/* Symbol + name */}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-[14px] font-bold text-[#1d1d1f] w-14 shrink-0">{stock.symbol}</span>
+                                <span className="text-[12px] text-[#6e6e73] truncate hidden sm:block">{stock.company_name}</span>
+                                <span className="text-[10px] text-[#aeaeb2] hidden md:block">{stock.sector}</span>
                               </div>
-                            ))}
-                          </div>
-                          <div className="mt-3 pt-3 border-t border-[#f0f0f0]">
-                            <DecisionBadge decision={decision} />
-                            {stock.decision_summary && (
-                              <p className="mt-2 text-[12px] text-[#3a3a3c] leading-relaxed">{stock.decision_summary}</p>
-                            )}
-                          </div>
+                              {/* Price + scores */}
+                              <div className="flex items-center gap-4 shrink-0">
+                                {stock.price != null && (
+                                  <span className="text-[13px] font-semibold text-[#1d1d1f]">${stock.price.toFixed(2)}</span>
+                                )}
+                                {stock.change_pct != null && (
+                                  <span className="text-[11px] font-medium" style={{ color: stock.change_pct >= 0 ? "#34c759" : "#ff3b30" }}>
+                                    {stock.change_pct >= 0 ? "+" : ""}{stock.change_pct.toFixed(2)}%
+                                  </span>
+                                )}
+                                {stock.composite_score != null && (
+                                  <span className="text-[11px] text-[#6e6e73] hidden sm:block">
+                                    Score <span className="font-semibold text-[#1d1d1f]">{stock.composite_score.toFixed(0)}</span>
+                                  </span>
+                                )}
+                                {stock.expected_return != null && (
+                                  <span className="text-[11px] font-semibold" style={{ color: groupColor }}>
+                                    {stock.expected_return.toFixed(1)}% exp.
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-[#aeaeb2]">{isOpen ? "▲" : "▼"}</span>
+                              </div>
+                            </div>
+                          </button>
+
+                          {/* Expanded stock detail */}
+                          {isOpen && (
+                            <div className="px-5 pb-4 pt-1 bg-[#fafafa] grid sm:grid-cols-3 gap-4">
+                              {/* Score bars */}
+                              <div>
+                                <p className="text-[10px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">Agent Scores</p>
+                                {[
+                                  ["Forensic (Claude)",  stock.forensic_score],
+                                  ["Macro (Gemini)",     stock.macro_score],
+                                  ["Asymmetry (DeepSeek)", stock.asymmetry_score],
+                                  ["Composite",         stock.composite_score],
+                                ].map(([label, score]) => {
+                                  if (score == null) return null;
+                                  const s = score as number;
+                                  const color = s >= 65 ? "#34c759" : s >= 45 ? "#ff9f0a" : "#ff3b30";
+                                  return (
+                                    <div key={label as string} className="mb-1.5">
+                                      <div className="flex justify-between text-[10px] mb-0.5">
+                                        <span className="text-[#6e6e73]">{label as string}</span>
+                                        <span className="font-medium text-[#1d1d1f]">{s.toFixed(1)}</span>
+                                      </div>
+                                      <div className="h-1 bg-[#e5e5ea] rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full" style={{ width: `${s}%`, background: color }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Hurdle math */}
+                              <div>
+                                <p className="text-[10px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">Hurdle Math</p>
+                                <div className="space-y-1.5">
+                                  {[
+                                    ["Expected", `${stock.expected_return?.toFixed(1) ?? "—"}%`, stock.expected_return != null ? (stock.expected_return >= hurdle ? "#34c759" : "#ff3b30") : "#6e6e73"],
+                                    ["Required", `${hurdle.toFixed(1)}%`, "#1d1d1f"],
+                                    ["Excess",   excess != null ? `${excess >= 0 ? "+" : ""}${excess.toFixed(1)}%` : "—", excess != null ? (excess >= 0 ? "#34c759" : "#ff3b30") : "#6e6e73"],
+                                    ["Confidence", `${stock.confidence?.toFixed(0) ?? "—"}%`, "#1d1d1f"],
+                                  ].map(([l, v, c]) => (
+                                    <div key={l as string} className="flex justify-between text-[11px]">
+                                      <span className="text-[#6e6e73]">{l as string}</span>
+                                      <span className="font-semibold" style={{ color: c as string }}>{v as string}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Summary */}
+                              <div>
+                                <p className="text-[10px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-2">AI Rationale</p>
+                                {stock.decision_summary ? (
+                                  <p className="text-[11px] text-[#3a3a3c] leading-relaxed">{stock.decision_summary}</p>
+                                ) : (
+                                  <p className="text-[11px] text-[#aeaeb2]">No summary available.</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -407,16 +428,13 @@ function ProfilePanel({
 }
 
 // ── Market Page ───────────────────────────────────────────────────────────────
-
 export default function MarketPage() {
   const router = useRouter();
   const { profiles, profilesLoaded, userEmail, isSuperuser, refreshProfiles } = useScan();
   const [token, setToken] = useState<string | null>(null);
-
-  // Per-profile results — keyed by profile.id
-  const [allResults, setAllResults]     = useState<Record<number, MarketResult[]>>({});
-  const [scannedAts, setScannedAts]     = useState<Record<number, string | null>>({});
-  const [loadingMap, setLoadingMap]     = useState<Record<number, boolean>>({});
+  const [allResults, setAllResults] = useState<Record<number, MarketResult[]>>({});
+  const [scannedAts, setScannedAts] = useState<Record<number, string | null>>({});
+  const [loadingMap, setLoadingMap] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!profilesLoaded) return;
@@ -427,16 +445,16 @@ export default function MarketPage() {
   }, [profilesLoaded, router]);
 
   const fetchForProfile = useCallback(async (profile: Profile, tok: string) => {
-    setLoadingMap((prev) => ({ ...prev, [profile.id]: true }));
+    setLoadingMap((p) => ({ ...p, [profile.id]: true }));
     const res = await fetch(`/api/market/results?universe=${profile.universe_key}`, {
       headers: { Authorization: `Bearer ${tok}` }, cache: "no-store",
     });
     if (res.ok) {
       const json = await res.json();
-      setAllResults((prev) => ({ ...prev, [profile.id]: json.results ?? [] }));
-      setScannedAts((prev) => ({ ...prev, [profile.id]: json.scanned_at ?? null }));
+      setAllResults((p) => ({ ...p, [profile.id]: json.results ?? [] }));
+      setScannedAts((p) => ({ ...p, [profile.id]: json.scanned_at ?? null }));
     }
-    setLoadingMap((prev) => ({ ...prev, [profile.id]: false }));
+    setLoadingMap((p) => ({ ...p, [profile.id]: false }));
   }, []);
 
   useEffect(() => {
@@ -446,8 +464,8 @@ export default function MarketPage() {
 
   async function handleDelete(profileId: number) {
     await refreshProfiles();
-    setAllResults((prev) => { const n = { ...prev }; delete n[profileId]; return n; });
-    setScannedAts((prev) => { const n = { ...prev }; delete n[profileId]; return n; });
+    setAllResults((p) => { const n = { ...p }; delete n[profileId]; return n; });
+    setScannedAts((p) => { const n = { ...p }; delete n[profileId]; return n; });
   }
 
   if (!profilesLoaded || !token) {
@@ -460,7 +478,6 @@ export default function MarketPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
-      {/* Nav */}
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-[15px] font-semibold text-[#1d1d1f]">Finance Decision Machine</span>
@@ -476,47 +493,41 @@ export default function MarketPage() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-10 pb-24">
-
+      <div className="max-w-7xl mx-auto px-6 py-8 pb-24">
         {profiles.length === 0 ? (
-          /* No profiles — welcome screen */
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <div className="text-[48px] mb-4">📊</div>
             <h1 className="text-[28px] font-semibold text-[#1d1d1f] mb-2">Welcome to Market Intelligence</h1>
-            <p className="text-[15px] text-[#6e6e73] mb-2 max-w-md">
-              Create your first investment profile to start seeing AI-powered BUY / HOLD / REJECT signals.
-            </p>
-            <p className="text-[13px] text-[#aeaeb2] mb-8 max-w-md">
-              Choose a stock universe (MEGA Cap, S&P 500, a sector, or manual picks), then set your hurdle rate.
+            <p className="text-[15px] text-[#6e6e73] mb-8 max-w-md">
+              Create an investment profile — choose a stock universe, set your hurdle rate, and get AI-powered signals every morning.
             </p>
             <Link href="/profile/new"
-              className="px-8 py-3 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90"
+              className="px-8 py-3 rounded-xl text-[15px] font-medium text-white hover:opacity-90 transition-opacity"
               style={{ background: "#0071e3" }}>
               Create Your First Profile →
             </Link>
           </div>
         ) : (
           <>
-            {/* ── Page header ── */}
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div>
-                <h1 className="text-[34px] font-semibold text-[#1d1d1f] tracking-tight">Market Intelligence</h1>
-                <p className="mt-1 text-[14px] text-[#6e6e73]">AI signals based on your profiles · Auto-scanned weekdays 9 AM UTC</p>
+                <h1 className="text-[28px] font-semibold text-[#1d1d1f] tracking-tight">Market Intelligence</h1>
+                <p className="text-[13px] text-[#6e6e73] mt-0.5">AI signals · weekday 9 AM auto-scan</p>
               </div>
               <Link href="/profile/new"
-                className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+                className="px-4 py-2 rounded-xl text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
                 style={{ background: "#0071e3" }}>
                 + New Profile
               </Link>
             </div>
 
-            {/* ── SECTION 1: Summary ── */}
+            {/* Section 1 — Summary */}
             <SummarySection profiles={profiles} allResults={allResults} />
 
-            {/* ── SECTION 2: Per-profile panels ── */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[18px] font-semibold text-[#1d1d1f]">Your Profiles</h2>
-              <Link href="/profile" className="text-[13px] text-[#0071e3] hover:underline">Manage all profiles →</Link>
+            {/* Section 2 — Per-profile panels */}
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[15px] font-semibold text-[#1d1d1f]">Your Profiles</h2>
+              <Link href="/profile" className="text-[12px] text-[#0071e3] hover:underline">Manage →</Link>
             </div>
 
             {profiles.map((profile) => (
@@ -535,8 +546,8 @@ export default function MarketPage() {
         )}
       </div>
 
-      <footer className="border-t border-black/[0.06] py-6 text-center">
-        <p className="text-[12px] text-[#aeaeb2]">Copyright © 2026 Finance Decision Machine. All rights reserved.</p>
+      <footer className="border-t border-black/[0.06] py-5 text-center">
+        <p className="text-[11px] text-[#aeaeb2]">Copyright © 2026 Finance Decision Machine. All rights reserved.</p>
       </footer>
     </div>
   );
