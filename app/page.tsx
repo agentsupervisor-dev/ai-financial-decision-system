@@ -79,6 +79,7 @@ export default function Home() {
             {isSuperuser && (
               <Link href="/admin/prompts" className="text-[13px] text-[#a3730a] hover:underline font-medium">Admin</Link>
             )}
+            <Link href="/market" className="text-[13px] text-[#0071e3] hover:underline font-medium">Market</Link>
             <Link href="/profile" className="text-[13px] text-[#0071e3] hover:underline">Profiles</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
               className="text-[13px] text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">
