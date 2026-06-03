@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" };
 
@@ -8,7 +8,7 @@ interface BuyModalProps {
   symbol: string;
   company_name: string;
   sector: string;
-  current_price: number;
+  current_price: number | null;   // may be null if FMP didn't load
   expected_return: number | null;
   hurdle_rate: number;
   profile_id: number;
@@ -20,14 +20,29 @@ interface BuyModalProps {
 }
 
 export default function BuyModal({
-  symbol, company_name, sector, current_price, expected_return,
+  symbol, company_name, sector, current_price: initialPrice, expected_return,
   hurdle_rate, profile_id, profile_name, available_balance, token,
   onClose, onSuccess,
 }: BuyModalProps) {
+  const [livePrice, setLivePrice] = useState<number | null>(initialPrice);
+  const [fetchingPrice, setFetchingPrice] = useState(initialPrice === null);
   const [mode, setMode] = useState<"shares" | "amount">("amount");
   const [shares, setShares] = useState("1");
   const [amount, setAmount] = useState("1000");
   const [buying, setBuying] = useState(false);
+
+  // Fetch live price if not available
+  useEffect(() => {
+    if (initialPrice !== null) { setLivePrice(initialPrice); return; }
+    setFetchingPrice(true);
+    fetch(`/api/market/price?symbol=${symbol}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d.price) setLivePrice(d.price); })
+      .catch(() => {})
+      .finally(() => setFetchingPrice(false));
+  }, [symbol, initialPrice, token]);
+
+  const current_price = livePrice ?? 0;
   const [error, setError] = useState<string | null>(null);
 
   const sharesNum = parseFloat(shares) || 0;
@@ -85,8 +100,16 @@ export default function BuyModal({
             <button onClick={onClose} className="text-[#aeaeb2] hover:text-[#1d1d1f] text-[20px] leading-none">×</button>
           </div>
           <div className="flex items-baseline gap-2 mt-3">
-            <span className="text-[32px] font-bold text-[#1d1d1f]">${current_price.toFixed(2)}</span>
-            <span className="text-[13px] text-[#6e6e73]">current price</span>
+            {fetchingPrice ? (
+              <span className="text-[18px] text-[#aeaeb2]">Fetching live price…</span>
+            ) : livePrice ? (
+              <>
+                <span className="text-[32px] font-bold text-[#1d1d1f]">${current_price.toFixed(2)}</span>
+                <span className="text-[13px] text-[#6e6e73]">live price</span>
+              </>
+            ) : (
+              <span className="text-[14px] text-red-500">Could not fetch price — enter manually below</span>
+            )}
           </div>
         </div>
 

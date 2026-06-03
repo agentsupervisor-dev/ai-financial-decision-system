@@ -377,8 +377,8 @@ function ProfilePanel({
                                 <span className="text-[10px] text-[#aeaeb2] text-right">{isOpen ? "▲" : "▼"}</span>
                               </div>
                             </button>
-                            {/* Buy button — only when price is available */}
-                            {stock.price != null && (
+                            {/* Buy button — shown for all scanned stocks */}
+                            {stock.composite_score != null && (
                               <button
                                 onClick={() => { setBuyTarget(stock); }}
                                 className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
@@ -458,7 +458,7 @@ function ProfilePanel({
       )}
 
       {/* Buy Modal */}
-      {buyTarget && buyTarget.price != null && (
+      {buyTarget && (
         <BuyModal
           symbol={buyTarget.symbol}
           company_name={buyTarget.company_name}
