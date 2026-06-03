@@ -119,7 +119,7 @@ export default function NewProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7]" style={APPLE}>
+    <div className="min-h-screen bg-[#f5f5f7] pb-24" style={APPLE}>
       <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-8 h-14 flex items-center justify-between">
           <button onClick={() => step === 2 ? setStep(1) : router.push("/market")}
@@ -191,11 +191,12 @@ export default function NewProfilePage() {
               </div>
             </button>
 
-            <div className="flex justify-end mt-8">
+            {/* Sticky continue bar */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-black/[0.06] px-6 py-4 flex justify-end z-20">
               <button onClick={goToStep2} disabled={!universeKey}
-                className="px-8 py-3 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-30"
-                style={{ background: "#0071e3" }}>
-                Continue →
+                className="px-10 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg"
+                style={{ background: universeKey ? "#0071e3" : "#aeaeb2", minWidth: 200 }}>
+                {universeKey ? "Continue →" : "Select a universe first"}
               </button>
             </div>
           </div>
@@ -337,16 +338,17 @@ export default function NewProfilePage() {
                 </div>
               </div>
 
-              <div className="border-t border-[#f0f0f0] pt-4 flex items-center justify-between">
-                <span className="text-[15px] font-semibold text-[#1d1d1f]">Total Hurdle Rate</span>
-                <span className="text-[32px] font-bold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</span>
-              </div>
             </div>
 
-            <div className="flex justify-end mt-6">
+            {/* Sticky create bar */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-black/[0.06] px-6 py-4 flex items-center justify-between z-20">
+              <div>
+                <p className="text-[12px] text-[#aeaeb2]">Total Hurdle Rate</p>
+                <p className="text-[20px] font-bold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
+              </div>
               <button onClick={handleSave} disabled={saving}
-                className="px-8 py-3 rounded-xl text-[15px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                style={{ background: "#0071e3" }}>
+                className="px-10 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 shadow-lg"
+                style={{ background: "#0071e3", minWidth: 240 }}>
                 {saving ? "Creating…" : "Create Profile & Start Scanning →"}
               </button>
             </div>
