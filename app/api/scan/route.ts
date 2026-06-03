@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { TICKERS as DEFAULT_TICKERS } from "@/data/tickers";
+import { analyzeTicker } from "@/lib/agents";
 
 async function getActiveTickers(): Promise<string[]> {
   try {
@@ -13,8 +14,6 @@ async function getActiveTickers(): Promise<string[]> {
   } catch { /* fall through to defaults */ }
   return DEFAULT_TICKERS;
 }
-
-const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "http://localhost:8000";
 
 export async function GET(req: NextRequest) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
@@ -29,7 +28,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Load specific profile by id
   const profileId = new URL(req.url).searchParams.get("profile_id");
   if (!profileId) {
     return NextResponse.json({ error: "Missing profile_id" }, { status: 400 });
@@ -47,35 +45,13 @@ export async function GET(req: NextRequest) {
   }
 
   const hurdle_rate = profile.inflation + profile.borrowing + profile.index_return + profile.opex + profile.alpha_target;
-
-  // Analyze all tickers sequentially (from Supabase if set, else hardcoded defaults)
   const tickers = await getActiveTickers();
+
+  // Analyze all tickers sequentially to stay within Bedrock rate limits
   const results = [];
   for (const ticker of tickers) {
-    try {
-      const params = new URLSearchParams({
-        inflation: String(profile.inflation),
-        borrowing: String(profile.borrowing),
-        index_return: String(profile.index_return),
-        opex: String(profile.opex),
-        alpha_target: String(profile.alpha_target),
-        investment_period: profile.investment_period,
-        profile_id: String(profile.id),
-      });
-
-      const res = await fetch(
-        `${ORCHESTRATOR_URL}/analyze/${encodeURIComponent(ticker)}?${params}`,
-        { cache: "no-store" }
-      );
-
-      if (res.ok) {
-        results.push(await res.json());
-      } else {
-        results.push({ ticker, error: `Analysis failed (${res.status})`, hurdle_rate });
-      }
-    } catch {
-      results.push({ ticker, error: "Could not reach orchestrator", hurdle_rate });
-    }
+    const result = await analyzeTicker(ticker, hurdle_rate, profile.investment_period);
+    results.push(result);
   }
 
   const sorted = results.sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0));
