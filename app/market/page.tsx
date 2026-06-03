@@ -35,8 +35,10 @@ function computeDecision(
   if (composite === null || confidence === null || expectedReturn === null) return null;
   const thresholds: Record<string, number> = { "1yr": 65, "3yr": 55, "5yr": 48 };
   const threshold = thresholds[period] ?? 55;
-  if (composite >= threshold && confidence >= 50 && expectedReturn >= hurdle) return "BUY";
-  if (composite < 45 || expectedReturn < hurdle) return "REJECT";
+  // REJECT only when expected return doesn't meet the hurdle — that's the user's primary criterion
+  if (expectedReturn < hurdle) return "REJECT";
+  // Meets hurdle: BUY if AI conviction is high enough, HOLD otherwise
+  if (composite >= threshold && confidence >= 50) return "BUY";
   return "HOLD";
 }
 
@@ -181,6 +183,38 @@ function ProfilePanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [buyTarget, setBuyTarget] = useState<MarketResult | null>(null);
+  const [heldSymbols, setHeldSymbols] = useState<Set<string>>(new Set());
+  const [sellingSymbol, setSellingSymbol] = useState<string | null>(null);
+  const [confirmSellSymbol, setConfirmSellSymbol] = useState<string | null>(null);
+
+  // Load VIP positions to know which stocks are already held
+  useEffect(() => {
+    fetch("/api/vip/portfolio", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        const held = new Set<string>((d.positions ?? []).map((p: { symbol: string }) => p.symbol));
+        setHeldSymbols(held);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  async function sellStock(symbol: string) {
+    setSellingSymbol(symbol);
+    setConfirmSellSymbol(null);
+    // Find position id from fresh fetch
+    const res = await fetch("/api/vip/portfolio", { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    const pos = (data.positions ?? []).find((p: { symbol: string; id: number }) => p.symbol === symbol);
+    if (!pos) { setSellingSymbol(null); return; }
+    await fetch("/api/vip/sell", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ position_id: pos.id }),
+    });
+    setHeldSymbols((prev) => { const n = new Set(prev); n.delete(symbol); return n; });
+    setSellingSymbol(null);
+    onRefresh();
+  }
 
   async function runScan() {
     setScanning(true);
@@ -361,14 +395,31 @@ function ProfilePanel({
                                 <span className="text-[10px] text-[#aeaeb2] text-right">{isOpen ? "▲" : "▼"}</span>
                               </div>
                             </button>
-                            {/* Buy button — shown for all scanned stocks */}
+                            {/* Buy / Sell button based on VIP holdings */}
                             {stock.composite_score != null && (
-                              <button
-                                onClick={() => { setBuyTarget(stock); }}
-                                className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
-                                style={{ background: group === "BUY" ? "#16a34a" : "#6e6e73" }}>
-                                Buy
-                              </button>
+                              heldSymbols.has(stock.symbol) ? (
+                                confirmSellSymbol === stock.symbol ? (
+                                  <div className="flex gap-1 shrink-0">
+                                    <button onClick={() => setConfirmSellSymbol(null)}
+                                      className="px-2 py-1 rounded text-[10px] bg-[#f5f5f7] text-[#6e6e73]">✕</button>
+                                    <button onClick={() => sellStock(stock.symbol)} disabled={sellingSymbol === stock.symbol}
+                                      className="px-2 py-1 rounded text-[10px] font-semibold text-white bg-red-500 disabled:opacity-40">
+                                      {sellingSymbol === stock.symbol ? "…" : "Sell"}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConfirmSellSymbol(stock.symbol)}
+                                    className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white bg-red-500 hover:opacity-90 transition-opacity">
+                                    Sell
+                                  </button>
+                                )
+                              ) : (
+                                <button onClick={() => { setBuyTarget(stock); }}
+                                  className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                                  style={{ background: group === "BUY" ? "#16a34a" : "#6e6e73" }}>
+                                  Buy
+                                </button>
+                              )
                             )}
                           </div>
 

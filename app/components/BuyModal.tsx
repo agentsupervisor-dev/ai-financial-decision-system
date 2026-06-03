@@ -36,13 +36,16 @@ export default function BuyModal({
     if (initialPrice !== null) { setLivePrice(initialPrice); return; }
     setFetchingPrice(true);
     fetch(`/api/market/price?symbol=${symbol}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => { if (d.price) setLivePrice(d.price); })
+      .then(async (r) => {
+        const d = await r.json();
+        if (d.price) setLivePrice(d.price);
+      })
       .catch(() => {})
       .finally(() => setFetchingPrice(false));
   }, [symbol, initialPrice, token]);
 
-  const current_price = livePrice ?? 0;
+  const [manualPrice, setManualPrice] = useState("");
+  const current_price = livePrice ?? (parseFloat(manualPrice) || 0);
   const [error, setError] = useState<string | null>(null);
 
   const sharesNum = parseFloat(shares) || 0;
@@ -104,11 +107,24 @@ export default function BuyModal({
               <span className="text-[18px] text-[#aeaeb2]">Fetching live price…</span>
             ) : livePrice ? (
               <>
-                <span className="text-[32px] font-bold text-[#1d1d1f]">${current_price.toFixed(2)}</span>
+                <span className="text-[32px] font-bold text-[#1d1d1f]">${livePrice.toFixed(2)}</span>
                 <span className="text-[13px] text-[#6e6e73]">live price</span>
               </>
             ) : (
-              <span className="text-[14px] text-red-500">Could not fetch price — enter manually below</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[13px] text-[#aeaeb2]">Enter price manually:</span>
+                <div className="flex items-center gap-1 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-1.5 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+                  <span className="text-[14px] text-[#6e6e73]">$</span>
+                  <input
+                    type="number" min="0.01" step="0.01"
+                    value={manualPrice}
+                    onChange={(e) => setManualPrice(e.target.value)}
+                    placeholder="e.g. 420.50"
+                    className="w-28 bg-transparent text-[15px] font-semibold text-[#1d1d1f] focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+              </div>
             )}
           </div>
         </div>
