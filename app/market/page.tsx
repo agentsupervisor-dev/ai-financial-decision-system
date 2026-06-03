@@ -207,7 +207,7 @@ function ProfilePanel({
   const periodLabel = profile.investment_period === "1yr" ? "1yr" : profile.investment_period === "3yr" ? "3yr" : "5yr+";
 
   return (
-    <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm mb-4 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm overflow-hidden h-fit">
       {/* Header row — always visible */}
       <div className="px-5 py-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -319,39 +319,30 @@ function ProfilePanel({
 
                       return (
                         <div key={stock.symbol} className="border-b border-[#f0f0f0] last:border-0">
-                          {/* Compact row */}
+                          {/* Compact row — grid layout, no justify-between gap */}
                           <button
-                            className="w-full text-left px-5 py-3 hover:bg-[#fafafa] transition-colors"
+                            className="w-full text-left px-4 py-2.5 hover:bg-[#fafafa] transition-colors"
                             onClick={() => setExpandedStock(isOpen ? null : `${profile.id}-${stock.symbol}`)}>
-                            <div className="flex items-center justify-between gap-3 flex-wrap">
-                              {/* Symbol + name */}
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span className="text-[14px] font-bold text-[#1d1d1f] w-14 shrink-0">{stock.symbol}</span>
-                                <span className="text-[12px] text-[#6e6e73] truncate hidden sm:block">{stock.company_name}</span>
-                                <span className="text-[10px] text-[#aeaeb2] hidden md:block">{stock.sector}</span>
-                              </div>
-                              {/* Price + scores */}
-                              <div className="flex items-center gap-4 shrink-0">
-                                {stock.price != null && (
-                                  <span className="text-[13px] font-semibold text-[#1d1d1f]">${stock.price.toFixed(2)}</span>
-                                )}
-                                {stock.change_pct != null && (
-                                  <span className="text-[11px] font-medium" style={{ color: stock.change_pct >= 0 ? "#34c759" : "#ff3b30" }}>
-                                    {stock.change_pct >= 0 ? "+" : ""}{stock.change_pct.toFixed(2)}%
-                                  </span>
-                                )}
-                                {stock.composite_score != null && (
-                                  <span className="text-[11px] text-[#6e6e73] hidden sm:block">
-                                    Score <span className="font-semibold text-[#1d1d1f]">{stock.composite_score.toFixed(0)}</span>
-                                  </span>
-                                )}
-                                {stock.expected_return != null && (
-                                  <span className="text-[11px] font-semibold" style={{ color: groupColor }}>
-                                    {stock.expected_return.toFixed(1)}% exp.
-                                  </span>
-                                )}
-                                <span className="text-[10px] text-[#aeaeb2]">{isOpen ? "▲" : "▼"}</span>
-                              </div>
+                            <div className="grid items-center gap-x-2 text-[12px]"
+                              style={{ gridTemplateColumns: "3.5rem 1fr auto auto auto auto 1rem" }}>
+                              <span className="font-bold text-[#1d1d1f] text-[13px]">{stock.symbol}</span>
+                              <span className="text-[#6e6e73] truncate">{stock.company_name}
+                                <span className="text-[#aeaeb2] ml-1.5 hidden sm:inline">{stock.sector}</span>
+                              </span>
+                              <span className="font-semibold text-[#1d1d1f] text-right pr-1">
+                                {stock.price != null ? `$${stock.price.toFixed(2)}` : "—"}
+                              </span>
+                              <span className="text-right pr-1 font-medium"
+                                style={{ color: (stock.change_pct ?? 0) >= 0 ? "#34c759" : "#ff3b30" }}>
+                                {stock.change_pct != null ? `${stock.change_pct >= 0 ? "+" : ""}${stock.change_pct.toFixed(1)}%` : ""}
+                              </span>
+                              <span className="text-[#6e6e73] text-right pr-1">
+                                {stock.composite_score != null && <>Score <b className="text-[#1d1d1f]">{stock.composite_score.toFixed(0)}</b></>}
+                              </span>
+                              <span className="font-semibold text-right pr-1" style={{ color: groupColor }}>
+                                {stock.expected_return != null ? `${stock.expected_return.toFixed(1)}%` : ""}
+                              </span>
+                              <span className="text-[10px] text-[#aeaeb2] text-right">{isOpen ? "▲" : "▼"}</span>
                             </div>
                           </button>
 
@@ -530,18 +521,22 @@ export default function MarketPage() {
               <Link href="/profile" className="text-[12px] text-[#0071e3] hover:underline">Manage →</Link>
             </div>
 
-            {profiles.map((profile) => (
-              <ProfilePanel
-                key={profile.id}
-                profile={profile}
-                token={token}
-                results={allResults[profile.id] ?? []}
-                scannedAt={scannedAts[profile.id] ?? null}
-                loading={loadingMap[profile.id] ?? true}
-                onRefresh={() => fetchForProfile(profile, token)}
-                onDelete={handleDelete}
-              />
-            ))}
+            <div className={profiles.length === 1
+              ? "space-y-4"
+              : "grid gap-4 grid-cols-1 lg:grid-cols-2"}>
+              {profiles.map((profile) => (
+                <ProfilePanel
+                  key={profile.id}
+                  profile={profile}
+                  token={token}
+                  results={allResults[profile.id] ?? []}
+                  scannedAt={scannedAts[profile.id] ?? null}
+                  loading={loadingMap[profile.id] ?? true}
+                  onRefresh={() => fetchForProfile(profile, token)}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
           </>
         )}
       </div>
