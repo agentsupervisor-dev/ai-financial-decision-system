@@ -73,7 +73,22 @@ Write a 2-3 sentence rationale explaining why this {decision} decision was reach
 export default function AdminPromptsPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
-  const [tab, setTab] = useState<"tickers" | "prompts">("tickers");
+  const [tab, setTab] = useState<"tickers" | "prompts" | "system">("tickers");
+
+  // System tab state
+  type LLMResult = { ok: boolean; reply: string; ms: number; via?: string; model?: string };
+  const [llmStatus, setLlmStatus] = useState<Record<string, LLMResult> | null>(null);
+  const [testingLLMs, setTestingLLMs] = useState(false);
+
+  async function testLLMs() {
+    if (!token) return;
+    setTestingLLMs(true);
+    setLlmStatus(null);
+    const res = await fetch("/api/test-llms", { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json();
+    setLlmStatus(json);
+    setTestingLLMs(false);
+  }
 
   // Tickers state
   const [tickers, setTickers] = useState<string[]>([]);
@@ -196,7 +211,7 @@ export default function AdminPromptsPage() {
       <div className="max-w-3xl mx-auto px-6 py-10 pb-24">
         {/* Tabs */}
         <div className="flex gap-1 bg-[#e5e5ea] p-1 rounded-xl mb-8 w-fit">
-          {(["tickers", "prompts"] as const).map((t) => (
+          {(["tickers", "prompts", "system"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className="px-5 py-2 rounded-lg text-[14px] font-medium transition-all"
               style={{
@@ -204,7 +219,7 @@ export default function AdminPromptsPage() {
                 color: tab === t ? "#1d1d1f" : "#6e6e73",
                 boxShadow: tab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
               }}>
-              {t === "tickers" ? "Ticker List" : "Agent Prompts"}
+              {t === "tickers" ? "Ticker List" : t === "prompts" ? "Agent Prompts" : "System"}
             </button>
           ))}
         </div>
@@ -314,6 +329,54 @@ export default function AdminPromptsPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {/* ── SYSTEM TAB ── */}
+        {tab === "system" && (
+          <div>
+            <div className="mb-6">
+              <h1 className="text-[28px] font-semibold text-[#1d1d1f] tracking-tight">System</h1>
+              <p className="mt-1 text-[15px] text-[#6e6e73]">Verify that all LLM connections are working correctly.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-[17px] font-semibold text-[#1d1d1f]">LLM Connections</h2>
+                <button onClick={testLLMs} disabled={testingLLMs}
+                  className="px-5 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "#0071e3" }}>
+                  {testingLLMs ? "Testing…" : "Test Connections"}
+                </button>
+              </div>
+
+              {!llmStatus && !testingLLMs && (
+                <p className="text-[13px] text-[#aeaeb2] text-center py-6">Click "Test Connections" to ping all three LLMs.</p>
+              )}
+
+              {testingLLMs && (
+                <p className="text-[13px] text-[#6e6e73] text-center py-6">Pinging Claude, Gemini, and DeepSeek…</p>
+              )}
+
+              {llmStatus && !testingLLMs && (
+                <div className="space-y-3">
+                  {Object.entries(llmStatus).map(([key, r]) => (
+                    <div key={key} className="flex items-start justify-between p-4 rounded-xl"
+                      style={{ background: r.ok ? "#f0fdf4" : "#fff5f5", border: `1px solid ${r.ok ? "#bbf7d0" : "#fecaca"}` }}>
+                      <div>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[13px] font-semibold" style={{ color: r.ok ? "#15803d" : "#dc2626" }}>
+                            {r.ok ? "✓" : "✗"} {r.model ?? key}
+                          </span>
+                          {r.via && <span className="text-[11px] text-[#6e6e73]">via {r.via}</span>}
+                        </div>
+                        {!r.ok && <p className="text-[12px] text-red-600 mt-1 font-mono break-all">{r.reply}</p>}
+                      </div>
+                      <span className="text-[12px] text-[#aeaeb2] whitespace-nowrap ml-4">{r.ms}ms</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
