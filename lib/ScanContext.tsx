@@ -57,9 +57,6 @@ export interface AgentStatuses {
   decision: AgentStatus;
 }
 
-const DEFAULT_AGENT_STATUSES: AgentStatuses = {
-  forensic: "pending", macro: "pending", asymmetry: "pending", decision: "pending",
-};
 
 interface ScanContextValue {
   profiles: Profile[];
@@ -116,23 +113,11 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     return () => listener?.subscription.unsubscribe();
   }, [refreshProfiles]);
 
-  // Poll agent status from backend while any scan is running
-  const startPolling = useCallback((profileId: number) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/scan/status?profile_id=${profileId}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data && typeof data.forensic === "string") {
-          setAgentStatuses((prev) => ({ ...prev, [profileId]: data as AgentStatuses }));
-        }
-      } catch { /* ignore */ }
-    }, 1500);
-  }, []);
+  const decisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (decisionTimerRef.current) { clearTimeout(decisionTimerRef.current); decisionTimerRef.current = null; }
   }, []);
 
   const startScan = useCallback(async (profileId: number, profileName: string) => {
@@ -144,8 +129,21 @@ export function ScanProvider({ children }: { children: ReactNode }) {
         startedAt: Date.now(),
       },
     }));
-    setAgentStatuses((prev) => ({ ...prev, [profileId]: { ...DEFAULT_AGENT_STATUSES } }));
-    startPolling(profileId);
+
+    // Forensic, Macro, Asymmetry run in parallel immediately
+    setAgentStatuses((prev) => ({
+      ...prev,
+      [profileId]: { forensic: "running", macro: "running", asymmetry: "running", decision: "pending" },
+    }));
+
+    // Decision runs after the 3 parallel agents finish (~20s estimate)
+    decisionTimerRef.current = setTimeout(() => {
+      setAgentStatuses((prev) => {
+        const cur = prev[profileId];
+        if (!cur || cur.decision !== "pending") return prev;
+        return { ...prev, [profileId]: { ...cur, decision: "running" } };
+      });
+    }, 20000);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -182,7 +180,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
         [profileId]: { ...prev[profileId], status: "failed" },
       }));
     }
-  }, [startPolling, stopPolling]);
+  }, [stopPolling]);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
