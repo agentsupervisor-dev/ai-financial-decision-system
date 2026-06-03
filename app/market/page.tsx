@@ -266,6 +266,10 @@ function ProfilePanel({
                       )}
                     </>
                   )}
+                  {/* VIP wallet balance */}
+                  <span className="text-[11px] px-2 py-0.5 rounded-lg font-semibold ml-1" style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                    💰 ${vipBalance.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} available
+                  </span>
                 </div>
               </div>
             </button>
@@ -316,7 +320,11 @@ function ProfilePanel({
         <div className="border-t border-[#f0f0f0]">
           {!hasData ? (
             <p className="text-[12px] text-[#aeaeb2] text-center py-5">No scan data — click Scan Now.</p>
-          ) : (
+          ) : scannedAt && (
+            <p className="text-[10px] text-[#aeaeb2] px-4 pt-2 pb-0">
+              Scores are AI estimates from the scan on {new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}. The same stock may score differently across profiles if scanned at different times — LLM outputs vary slightly between runs.
+            </p>
+          ) && (
             <div>
               {/* Group headers */}
               {(["BUY", "HOLD", "REJECT"] as const).map((group) => {
