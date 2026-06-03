@@ -73,7 +73,40 @@ Write a 2-3 sentence rationale explaining why this {decision} decision was reach
 export default function AdminPromptsPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
-  const [tab, setTab] = useState<"tickers" | "prompts" | "system">("tickers");
+  const [tab, setTab] = useState<"tickers" | "prompts" | "system" | "wallets">("tickers");
+
+  // Wallets tab state
+  type VipPortfolio = { id: number; profile_id: number; user_email: string; current_balance: number; initial_balance: number; profiles: { name: string; universe_key: string } };
+  const [wallets, setWallets] = useState<VipPortfolio[]>([]);
+  const [walletInputs, setWalletInputs] = useState<Record<number, string>>({});
+  const [walletSaving, setWalletSaving] = useState<number | null>(null);
+  const [walletMsg, setWalletMsg] = useState<Record<number, string>>({});
+  const [walletsLoaded, setWalletsLoaded] = useState(false);
+
+  async function loadWallets(tok: string) {
+    const res = await fetch("/api/admin/vip", { headers: { Authorization: `Bearer ${tok}` } });
+    const json = await res.json();
+    setWallets(json.portfolios ?? []);
+    setWalletsLoaded(true);
+  }
+
+  async function saveWallet(portfolioId: number) {
+    if (!token) return;
+    const val = parseFloat(walletInputs[portfolioId]);
+    if (isNaN(val) || val < 0) return;
+    setWalletSaving(portfolioId);
+    const res = await fetch("/api/admin/vip", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ portfolio_id: portfolioId, new_balance: val }),
+    });
+    if (res.ok) {
+      setWallets((prev) => prev.map((w) => w.id === portfolioId ? { ...w, current_balance: val } : w));
+      setWalletMsg((prev) => ({ ...prev, [portfolioId]: "✓ Updated" }));
+      setTimeout(() => setWalletMsg((prev) => ({ ...prev, [portfolioId]: "" })), 2500);
+    }
+    setWalletSaving(null);
+  }
 
   // System tab state
   type LLMResult = { ok: boolean; reply: string; ms: number; via?: string; model?: string };
@@ -211,15 +244,19 @@ export default function AdminPromptsPage() {
       <div className="max-w-3xl mx-auto px-6 py-10 pb-24">
         {/* Tabs */}
         <div className="flex gap-1 bg-[#e5e5ea] p-1 rounded-xl mb-8 w-fit">
-          {(["tickers", "prompts", "system"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
+          {(["tickers", "prompts", "system", "wallets"] as const).map((t) => (
+            <button key={t}
+              onClick={() => {
+                setTab(t);
+                if (t === "wallets" && !walletsLoaded && token) loadWallets(token);
+              }}
               className="px-5 py-2 rounded-lg text-[14px] font-medium transition-all"
               style={{
                 background: tab === t ? "#fff" : "transparent",
                 color: tab === t ? "#1d1d1f" : "#6e6e73",
                 boxShadow: tab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
               }}>
-              {t === "tickers" ? "Ticker List" : t === "prompts" ? "Agent Prompts" : "System"}
+              {t === "tickers" ? "Ticker List" : t === "prompts" ? "Agent Prompts" : t === "system" ? "System" : "💰 Wallets"}
             </button>
           ))}
         </div>
@@ -378,6 +415,83 @@ export default function AdminPromptsPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── WALLETS TAB ── */}
+        {tab === "wallets" && (
+          <div>
+            <div className="mb-6">
+              <h1 className="text-[28px] font-semibold text-[#1d1d1f] tracking-tight">Virtual Wallets</h1>
+              <p className="mt-1 text-[15px] text-[#6e6e73]">View and adjust users&apos; VIP portfolio balances. Changes are logged as transactions.</p>
+            </div>
+
+            {!walletsLoaded ? (
+              <p className="text-[13px] text-[#aeaeb2] text-center py-8">Loading wallets…</p>
+            ) : wallets.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-black/[0.08] p-8 text-center">
+                <p className="text-[14px] text-[#6e6e73]">No VIP portfolios created yet.</p>
+                <p className="text-[12px] text-[#aeaeb2] mt-1">Wallets are created automatically when a user makes their first buy.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Group by user email */}
+                {Object.entries(
+                  wallets.reduce((acc, w) => {
+                    acc[w.user_email] = [...(acc[w.user_email] ?? []), w];
+                    return acc;
+                  }, {} as Record<string, typeof wallets>)
+                ).map(([email, userWallets]) => (
+                  <div key={email} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm overflow-hidden">
+                    {/* User header */}
+                    <div className="px-5 py-3 border-b border-[#f0f0f0] bg-[#f9f9f9]">
+                      <span className="text-[13px] font-semibold text-[#1d1d1f]">{email}</span>
+                      <span className="text-[11px] text-[#aeaeb2] ml-2">{userWallets.length} profile{userWallets.length !== 1 ? "s" : ""}</span>
+                    </div>
+
+                    {/* Per-profile rows */}
+                    {userWallets.map((w) => {
+                      const spent = w.initial_balance - w.current_balance;
+                      return (
+                        <div key={w.id} className="flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] last:border-0 flex-wrap">
+                          {/* Profile info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-semibold text-[#1d1d1f]">{w.profiles?.name}</p>
+                            <p className="text-[11px] text-[#aeaeb2]">
+                              Started ${w.initial_balance.toFixed(0)} · Spent ${spent.toFixed(0)} · Available <span className="font-semibold text-[#0071e3]">${w.current_balance.toFixed(2)}</span>
+                            </p>
+                          </div>
+
+                          {/* Balance input */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+                              <span className="text-[13px] text-[#6e6e73]">$</span>
+                              <input
+                                type="number" min={0} step={100}
+                                placeholder={w.current_balance.toFixed(0)}
+                                value={walletInputs[w.id] ?? ""}
+                                onChange={(e) => setWalletInputs((prev) => ({ ...prev, [w.id]: e.target.value }))}
+                                className="w-24 bg-transparent text-[14px] font-semibold text-[#1d1d1f] focus:outline-none"
+                              />
+                            </div>
+                            <button
+                              onClick={() => saveWallet(w.id)}
+                              disabled={walletSaving === w.id || !walletInputs[w.id]}
+                              className="px-4 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                              style={{ background: "#0071e3" }}>
+                              {walletSaving === w.id ? "Saving…" : "Set"}
+                            </button>
+                            {walletMsg[w.id] && (
+                              <span className="text-[12px] font-semibold" style={{ color: "#16a34a" }}>{walletMsg[w.id]}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
