@@ -174,10 +174,12 @@ function ProfilePanel({
 
   async function runScan() {
     setScanning(true);
+    const body: Record<string, unknown> = { universe: profile.universe_key };
+    if (profile.universe_key === "manual") body.profile_id = profile.id;
     await fetch("/api/market/scan", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ universe: profile.universe_key }),
+      body: JSON.stringify(body),
     });
     onRefresh();
     setScanning(false);
@@ -437,7 +439,9 @@ export default function MarketPage() {
 
   const fetchForProfile = useCallback(async (profile: Profile, tok: string) => {
     setLoadingMap((p) => ({ ...p, [profile.id]: true }));
-    const res = await fetch(`/api/market/results?universe=${profile.universe_key}`, {
+    const params = new URLSearchParams({ universe: profile.universe_key });
+    if (profile.universe_key === "manual") params.set("profile_id", String(profile.id));
+    const res = await fetch(`/api/market/results?${params}`, {
       headers: { Authorization: `Bearer ${tok}` }, cache: "no-store",
     });
     if (res.ok) {

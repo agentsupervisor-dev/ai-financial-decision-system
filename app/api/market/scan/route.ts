@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import { analyzeTicker } from "@/lib/agents";
 
 export async function POST(req: NextRequest) {
-  // Require a valid user session
   const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,39 +10,60 @@ export async function POST(req: NextRequest) {
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   );
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { universe = "mega10" } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const universe  = body.universe  ?? "mega10";
+  const profileId = body.profile_id ?? null;
+  const isManual  = universe === "manual";
 
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // Load tickers for this universe
-  const { data: tickers, error: tickerError } = await sb
-    .from("market_universe")
-    .select("symbol")
-    .eq("universe", universe)
-    .order("sort_order");
+  let symbols: string[] = [];
 
-  if (tickerError || !tickers?.length) {
-    return NextResponse.json({ error: "No tickers found for universe" }, { status: 400 });
+  if (isManual && profileId) {
+    // Manual picks: load from profile_tickers
+    const { data, error } = await sb
+      .from("profile_tickers")
+      .select("symbol")
+      .eq("profile_id", profileId)
+      .eq("user_id", user.id);
+
+    if (error || !data?.length) {
+      return NextResponse.json({ error: "No stocks in this profile yet. Add stocks via Edit Profile." }, { status: 400 });
+    }
+    symbols = data.map((r) => r.symbol);
+  } else {
+    // Preset universe: load from market_universe
+    const { data, error } = await sb
+      .from("market_universe")
+      .select("symbol")
+      .eq("universe", universe)
+      .order("sort_order");
+
+    if (error || !data?.length) {
+      return NextResponse.json({ error: "No tickers found for universe" }, { status: 400 });
+    }
+    symbols = data.map((r) => r.symbol);
   }
+
+  // For manual profiles, use a unique universe key so results don't clash with other profiles
+  const scanUniverse = isManual && profileId ? `manual_${profileId}` : universe;
 
   const NEUTRAL_HURDLE = 0;
   const DEFAULT_PERIOD = "3yr";
 
   const results = [];
-  for (const { symbol } of tickers) {
+  for (const symbol of symbols) {
     const result = await analyzeTicker(symbol, NEUTRAL_HURDLE, DEFAULT_PERIOD);
     results.push(result);
 
     await sb.from("market_scans").insert({
       symbol,
-      universe,
+      universe: scanUniverse,
       forensic_score:   result.forensic_score,
       macro_score:      result.macro_score,
       asymmetry_score:  result.asymmetry_score,
@@ -55,9 +75,5 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({
-    universe,
-    scanned: results.length,
-    scanned_at: new Date().toISOString(),
-  });
+  return NextResponse.json({ universe: scanUniverse, scanned: results.length, scanned_at: new Date().toISOString() });
 }
