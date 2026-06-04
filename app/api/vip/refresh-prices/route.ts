@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   // Load active positions to refresh
-  let query = sb.from("vip_positions").select("id, symbol, quantity, buy_amount, target_price, status").eq("user_id", user.id).neq("status", "sold");
+  let query = sb.from("vip_positions").select("id, symbol, quantity, buy_price, buy_amount, target_price, status").eq("user_id", user.id).neq("status", "sold");
   if (profile_id) query = query.eq("profile_id", profile_id);
   const { data: positions } = await query;
   if (!positions?.length) return NextResponse.json({ updated: 0 });
@@ -35,8 +35,12 @@ export async function POST(req: NextRequest) {
       // Update all positions for this symbol
       const matching = positions.filter((p) => p.symbol === symbol);
       for (const pos of matching) {
-        const current_value = parseFloat((pos.quantity * price).toFixed(2));
-        const newStatus = price >= pos.target_price && pos.status === "holding" ? "target_hit" : pos.status;
+        const current_value = parseFloat(((pos.quantity as number) * price).toFixed(2));
+        // Detect target hit
+        const newStatus = price >= (pos.target_price as number) && pos.status === "holding"
+          ? "target_hit"
+          : (pos.status as string);
+
         await sb.from("vip_positions").update({
           current_price: price, current_value,
           price_updated_at: new Date().toISOString(),

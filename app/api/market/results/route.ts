@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getEffectiveHurdleRate } from "@/lib/strategy-utils";
 
 export async function GET(req: NextRequest) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "") ?? "";
@@ -99,5 +100,21 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ universe, results, scanned_at: scans?.[0]?.scanned_at ?? null });
+  // Compute effective hurdle from strategies if profile has them
+  let effectiveHurdle: number | null = null;
+  if (profileId) {
+    const { data: profile } = await sb.from("profiles")
+      .select("inflation, borrowing, index_return, opex, alpha_target")
+      .eq("id", profileId).single();
+    const fallback = profile
+      ? profile.inflation + profile.borrowing + profile.index_return + profile.opex + profile.alpha_target
+      : 0;
+    effectiveHurdle = await getEffectiveHurdleRate(Number(profileId), fallback);
+  }
+
+  return NextResponse.json({
+    universe, results,
+    scanned_at: scans?.[0]?.scanned_at ?? null,
+    effective_hurdle: effectiveHurdle,
+  });
 }

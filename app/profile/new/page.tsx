@@ -1,61 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useScan } from "@/lib/ScanContext";
 
+// ── Constants (from spec) ──────────────────────────────────────────────────────
+
+const MAX_PORTFOLIOS = 5;
+
+const INVESTMENT_TYPES = ["Jumbo cap", "Mega cap", "Large cap", "Mid cap", "Small cap", "Mutual fund", "ETF", "Treasury bond"];
+
+const CURRENCY_RATES: Record<string, number> = {
+  USD:1.0,EUR:1.08,GBP:1.26,JPY:0.0064,AUD:0.66,CAD:0.73,CHF:1.11,CNY:0.14,HKD:0.13,NZD:0.61,
+  SEK:0.095,KRW:0.00073,SGD:0.74,NOK:0.093,MXN:0.059,INR:0.012,RUB:0.011,ZAR:0.054,BRL:0.19,TRY:0.031,
+  TWD:0.031,DKK:0.14,PLN:0.25,THB:0.027,IDR:0.000061,HUF:0.0028,CZK:0.043,ILS:0.27,CLP:0.0011,PHP:0.017,
+  AED:0.27,COP:0.00026,SAR:0.27,MYR:0.21,RON:0.22,ARS:0.0011,PAB:1.0,PEN:0.27,UYU:0.026,EGP:0.021,
+  VND:0.000039,UAH:0.025,KWD:3.25,QAR:0.27,NGN:0.00067,
+};
+
+const CURRENCY_LOCALES: Record<string, string> = {
+  USD:"en-US",EUR:"de-DE",GBP:"en-GB",JPY:"ja-JP",AUD:"en-AU",CAD:"en-CA",CHF:"de-CH",CNY:"zh-CN",
+  HKD:"zh-HK",NZD:"en-NZ",SEK:"sv-SE",KRW:"ko-KR",SGD:"en-SG",NOK:"no-NO",MXN:"es-MX",INR:"en-IN",
+  RUB:"ru-RU",ZAR:"en-ZA",BRL:"pt-BR",TRY:"tr-TR",TWD:"zh-TW",DKK:"da-DK",PLN:"pl-PL",THB:"th-TH",
+  IDR:"id-ID",HUF:"hu-HU",CZK:"cs-CZ",ILS:"he-IL",CLP:"es-CL",PHP:"en-PH",AED:"ar-AE",COP:"es-CO",
+  SAR:"ar-SA",MYR:"ms-MY",RON:"ro-RO",ARS:"es-AR",PAB:"es-PA",PEN:"es-PE",UYU:"es-UY",EGP:"ar-EG",
+  VND:"vi-VN",UAH:"uk-UA",KWD:"ar-KW",QAR:"ar-QA",NGN:"en-NG",
+};
+
+const DECIMAL_COMMA_LOCALES = new Set(["de-DE","de-CH","fr-FR","es-MX","es-CL","es-CO","es-AR","es-PE","es-UY","ru-RU","tr-TR","da-DK","pl-PL","id-ID","hu-HU","cs-CZ","vi-VN","uk-UA","pt-BR","ro-RO"]);
+
+const STRATEGY_MATRIX = {
+  unrealized: {
+    periods: ["10 years"],
+    hurdle:   { "10 years": 8.5 },
+    stopLoss: { "10 years": 15.0 },
+  },
+  realized: {
+    periods: ["1 day","5 days","15 days","1 month","3 months","6 months","9 months","1 year","3 years","5 years"],
+    hurdle:   { "1 day":0.05,"5 days":0.25,"15 days":0.75,"1 month":1.5,"3 months":2.5,"6 months":4.0,"9 months":5.0,"1 year":6.0,"3 years":7.0,"5 years":7.5 },
+    stopLoss: { "1 day":1.0,"5 days":2.0,"15 days":3.5,"1 month":5.0,"3 months":7.5,"6 months":8.0,"9 months":9.0,"1 year":10.0,"3 years":12.0,"5 years":12.5 },
+  },
+} as const;
+
+type Objective = keyof typeof STRATEGY_MATRIX;
+
+interface Investment { type: string; pct: string; }
+interface StrategyRow {
+  obj: Objective; period: string;
+  aumPct: number; hurdle: number; stopLoss: number;
+  investments: Investment[];
+}
+interface Portfolio { name: string; aum: number; }
+
 const APPLE = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif" };
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const CURRENCIES = [
-  { code: "USD", symbol: "$",  name: "US Dollar",          rate: 1       },
-  { code: "GBP", symbol: "£",  name: "British Pound",      rate: 1.27    },
-  { code: "EUR", symbol: "€",  name: "Euro",               rate: 1.08    },
-  { code: "INR", symbol: "₹",  name: "Indian Rupee",       rate: 0.012   },
-  { code: "AUD", symbol: "A$", name: "Australian Dollar",  rate: 0.65    },
-  { code: "CAD", symbol: "C$", name: "Canadian Dollar",    rate: 0.74    },
-  { code: "SGD", symbol: "S$", name: "Singapore Dollar",   rate: 0.74    },
-  { code: "AED", symbol: "د", name: "UAE Dirham",          rate: 0.27    },
-];
+function pct(v: string | number) { return Math.max(0, Math.min(100, parseInt(String(v), 10) || 0)); }
 
-const DIVESTMENT_OPTIONS = [
-  { value: "never",  label: "Never",        sub: "Long-term hold" },
-  { value: "1yr",    label: "1 Year",       sub: "Short-term" },
-  { value: "3yr",    label: "3 Years",      sub: "Medium-term" },
-  { value: "5yr",    label: "5 Years",      sub: "Long-term" },
-  { value: "10yr",   label: "10 Years",     sub: "Very long-term" },
-];
+function formatAmt(val: number, currency: string) {
+  const locale = CURRENCY_LOCALES[currency] ?? "en-US";
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(val);
+}
 
-const PERIOD_OPTIONS = [
-  { value: "1yr", label: "Short-term · 1 yr" },
-  { value: "3yr", label: "Medium-term · 3 yrs" },
-  { value: "5yr", label: "Long-term · 5+ yrs" },
-];
+function parseAmt(str: string, currency: string) {
+  const locale = CURRENCY_LOCALES[currency] ?? "en-US";
+  const clean = str.replace(/[^\d.,-]/g, "");
+  if (DECIMAL_COMMA_LOCALES.has(locale)) {
+    return Math.floor(parseFloat(clean.replace(/\./g, "").replace(/,/g, ".")) || 0);
+  }
+  return Math.floor(parseFloat(clean.replace(/,/g, "")) || 0);
+}
 
-const MARKET_CAP_PRESETS = [
-  { key: "mega10",    label: "MEGA Cap",   sublabel: "Top 10",  count: 10, color: "#0071e3", bg: "#f0f6ff", description: "Apple, Microsoft, NVIDIA, Alphabet, Amazon + 5 more" },
-  { key: "nasdaq100", label: "NASDAQ 100", sublabel: "Top 25",  count: 25, color: "#5856d6", bg: "#f3f2ff", description: "Top NASDAQ-listed tech & growth companies" },
-  { key: "sp500",     label: "S&P 500",    sublabel: "Top 30",  count: 30, color: "#34c759", bg: "#f0fdf4", description: "Largest US companies across all sectors" },
-];
-
-const SECTOR_PRESETS = [
-  { key: "sector_tech",       label: "Technology",  icon: "💻", count: 15, description: "NVIDIA, AMD, Qualcomm, Oracle and more" },
-  { key: "sector_health",     label: "Healthcare",  icon: "🏥", count: 13, description: "Eli Lilly, UnitedHealth, J&J and more" },
-  { key: "sector_finance",    label: "Financial",   icon: "🏦", count: 12, description: "JPMorgan, Visa, Mastercard and more" },
-  { key: "sector_energy",     label: "Energy",      icon: "⚡", count: 8,  description: "Exxon, Chevron, ConocoPhillips and more" },
-  { key: "sector_consumer",   label: "Consumer",    icon: "🛍️", count: 12, description: "Amazon, Walmart, McDonald's and more" },
-  { key: "sector_industrial", label: "Industrial",  icon: "🏭", count: 11, description: "Honeywell, Union Pacific, Caterpillar and more" },
-];
-
-const ALL_PRESETS = [...MARKET_CAP_PRESETS, ...SECTOR_PRESETS];
-
-interface PortfolioDraft {
-  name: string;
-  allocation_pct: number;
-  divestment: string;
-  investment_period: string;
+function defaultStrategies(): StrategyRow[] {
+  return [
+    { obj: "unrealized", period: "10 years", aumPct: 40, hurdle: 8.5,  stopLoss: 15.0, investments: [{ type: "", pct: "" }] },
+    { obj: "realized",   period: "3 years",  aumPct: 40, hurdle: 7.0,  stopLoss: 12.0, investments: [{ type: "", pct: "" }] },
+    { obj: "realized",   period: "1 month",  aumPct: 20, hurdle: 1.5,  stopLoss: 5.0,  investments: [{ type: "", pct: "" }] },
+  ];
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -63,70 +86,181 @@ interface PortfolioDraft {
 export default function NewProfilePage() {
   const router = useRouter();
   const { refreshProfiles } = useScan();
-
-  const TOTAL_STEPS = 5;
-  const [step, setStep] = useState(1);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Step 1 — AUM
-  const [aumAmount, setAumAmount]     = useState("");
-  const [aumCurrency, setAumCurrency] = useState("USD");
-
-  const currency    = CURRENCIES.find((c) => c.code === aumCurrency) ?? CURRENCIES[0];
-  const aumUSD      = parseFloat(aumAmount) * currency.rate || 0;
-  const aumDisplay  = parseFloat(aumAmount) || 0;
-
-  // Step 2 — Portfolio count
+  // Section 01 state
+  const [rawAmount, setRawAmount]       = useState(10_000_000);
+  const [amountDisplay, setAmountDisplay] = useState("10,000,000");
+  const [currency, setCurrency]         = useState("USD");
   const [portfolioCount, setPortfolioCount] = useState(1);
+  const [showCountMenu, setShowCountMenu] = useState(false);
 
-  // Step 3 — Per-portfolio config
-  const [portfolios, setPortfolios] = useState<PortfolioDraft[]>([
-    { name: "Portfolio 1", allocation_pct: 100, divestment: "never", investment_period: "3yr" },
-  ]);
+  // Section 02 state
+  const [portfolios, setPortfolios] = useState<Portfolio[]>(
+    Array.from({ length: MAX_PORTFOLIOS }, (_, i) => ({
+      name: `Portfolio Alpha ${String.fromCharCode(65 + i)}`,
+      aum:  i === 0 ? 100 : 0,
+    }))
+  );
 
-  function updatePortfolio(i: number, field: keyof PortfolioDraft, value: string | number) {
-    setPortfolios((prev) => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
+  // Section 03 state
+  const [activeTab, setActiveTab]     = useState(1);
+  const [strategies, setStrategies]   = useState<Record<number, StrategyRow[]>>({});
+
+  // ── Computed ────────────────────────────────────────────────────────────────
+
+  const rate        = CURRENCY_RATES[currency] ?? 1;
+  const usdEquiv    = Math.round(rawAmount * rate);
+  const totalAlloc  = portfolios.slice(0, portfolioCount).reduce((s, p) => s + p.aum, 0);
+  const locale      = CURRENCY_LOCALES[currency] ?? "en-US";
+
+  function strategiesFor(idx: number): StrategyRow[] {
+    if (!strategies[idx]) {
+      setStrategies((prev) => ({ ...prev, [idx]: defaultStrategies() }));
+      return defaultStrategies();
+    }
+    return strategies[idx];
   }
 
-  function syncPortfolioCount(n: number) {
+  // ── Section 01 handlers ─────────────────────────────────────────────────────
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const parsed = parseAmt(e.target.value, currency);
+    setRawAmount(parsed);
+    setAmountDisplay(formatAmt(parsed, currency));
+  }
+
+  function handleCurrencyChange(c: string) {
+    setCurrency(c);
+    setAmountDisplay(formatAmt(rawAmount, c));
+  }
+
+  function handleCountSelect(n: number) {
     setPortfolioCount(n);
+    setShowCountMenu(false);
+    if (activeTab > n) setActiveTab(1);
+    rebalance(null, n);
+  }
+
+  // ── Section 02 handlers ─────────────────────────────────────────────────────
+
+  function rebalance(changedIdx: number | null, count = portfolioCount) {
     setPortfolios((prev) => {
       const next = [...prev];
-      while (next.length < n) next.push({ name: `Portfolio ${next.length + 1}`, allocation_pct: 0, divestment: "never", investment_period: "3yr" });
-      return next.slice(0, n);
+      const last = count - 1;
+      let sum = 0;
+      for (let i = 0; i < last; i++) {
+        if (changedIdx !== null && i === changedIdx && sum + next[i].aum > 100) {
+          next[i].aum = Math.max(0, 100 - (sum - next[i].aum + next[i].aum));
+        }
+        sum += next[i].aum;
+      }
+      if (sum > 100 && changedIdx !== null) {
+        const overflow = sum - 100;
+        next[changedIdx].aum = Math.max(0, next[changedIdx].aum - overflow);
+        sum = 100;
+      }
+      next[last].aum = Math.max(0, 100 - sum);
+      return next;
     });
-    // Auto-distribute allocation equally
-    const equal = parseFloat((100 / n).toFixed(1));
-    setPortfolios((prev) => prev.slice(0, n).map((p, i) => ({ ...p, allocation_pct: i === 0 ? 100 - equal * (n - 1) : equal })));
   }
 
-  const totalAlloc = portfolios.reduce((s, p) => s + p.allocation_pct, 0);
-  const allocOk    = Math.abs(totalAlloc - 100) < 0.1;
-
-  // Step 4 — Universe
-  const [universeType, setUniverseType] = useState<"preset" | "manual">("preset");
-  const [universeKey, setUniverseKey]   = useState("");
-
-  // Step 5 — Hurdle rate
-  const [inflation,   setInflation]   = useState(3.5);
-  const [borrowing,   setBorrowing]   = useState(7.5);
-  const [indexReturn, setIndexReturn] = useState(12.0);
-  const [opex,        setOpex]        = useState(0.5);
-  const [alpha,       setAlpha]       = useState(6.5);
-  const hurdle = inflation + borrowing + indexReturn + opex + alpha;
-
-  // ── Navigation ───────────────────────────────────────────────────────────────
-
-  function goNext() {
-    setError(null);
-    if (step === 1 && (!aumAmount || parseFloat(aumAmount) <= 0)) { setError("Please enter your AUM amount."); return; }
-    if (step === 3 && !allocOk) { setError(`Allocation must total 100%. Currently ${totalAlloc.toFixed(1)}%.`); return; }
-    if (step === 4 && !universeKey) { setError("Please select a stock universe."); return; }
-    setStep((s) => s + 1);
+  function handlePortfolioName(i: number, val: string) {
+    setPortfolios((prev) => prev.map((p, idx) => idx === i ? { ...p, name: val } : p));
   }
 
-  function goBack() { setError(null); setStep((s) => s - 1); }
+  function handlePortfolioAum(i: number, val: number) {
+    setPortfolios((prev) => {
+      const next = [...prev];
+      next[i].aum = pct(val);
+      return next;
+    });
+    rebalance(i);
+  }
+
+  // ── Section 03 handlers ─────────────────────────────────────────────────────
+
+  const updateStrategies = useCallback((pIdx: number, fn: (rows: StrategyRow[]) => StrategyRow[]) => {
+    setStrategies((prev) => {
+      const rows = prev[pIdx] ?? defaultStrategies();
+      return { ...prev, [pIdx]: fn([...rows]) };
+    });
+  }, []);
+
+  function recalcRemainder(rows: StrategyRow[]) {
+    const sum = rows.slice(0, -1).reduce((s, r) => s + r.aumPct, 0);
+    rows[rows.length - 1].aumPct = Math.max(0, 100 - sum);
+    return rows;
+  }
+
+  function handleObjective(rowIdx: number, val: Objective) {
+    updateStrategies(activeTab, (rows) => {
+      rows[rowIdx].obj    = val;
+      rows[rowIdx].period = STRATEGY_MATRIX[val].periods[0];
+      rows[rowIdx].hurdle   = (STRATEGY_MATRIX[val].hurdle as Record<string, number>)[rows[rowIdx].period] ?? 0;
+      rows[rowIdx].stopLoss = (STRATEGY_MATRIX[val].stopLoss as Record<string, number>)[rows[rowIdx].period] ?? 0;
+      return rows;
+    });
+  }
+
+  function handlePeriod(rowIdx: number, val: string) {
+    updateStrategies(activeTab, (rows) => {
+      const obj = rows[rowIdx].obj;
+      rows[rowIdx].period   = val;
+      rows[rowIdx].hurdle   = (STRATEGY_MATRIX[obj].hurdle as Record<string, number>)[val] ?? 0;
+      rows[rowIdx].stopLoss = (STRATEGY_MATRIX[obj].stopLoss as Record<string, number>)[val] ?? 0;
+      return rows;
+    });
+  }
+
+  function handleStrategyAum(rowIdx: number, val: string) {
+    updateStrategies(activeTab, (rows) => {
+      rows[rowIdx].aumPct = pct(val);
+      let running = 0;
+      for (let i = 0; i < rows.length - 1; i++) {
+        if (running + rows[i].aumPct > 100) rows[i].aumPct = 100 - running;
+        running += rows[i].aumPct;
+      }
+      return recalcRemainder(rows);
+    });
+  }
+
+  function handleInvType(rowIdx: number, invIdx: number, val: string) {
+    updateStrategies(activeTab, (rows) => {
+      const invs = rows[rowIdx].investments;
+      invs[invIdx].type = val;
+      if (val) {
+        const used = invs.reduce((s, item, i) => i === invIdx || !item.type ? s : s + pct(item.pct), 0);
+        invs[invIdx].pct = String(Math.max(0, 100 - used));
+        if (invIdx === invs.length - 1) invs.push({ type: "", pct: "" });
+      } else if (invIdx < invs.length - 1) {
+        invs.splice(invIdx, 1);
+      }
+      return rows;
+    });
+  }
+
+  function handleInvPct(rowIdx: number, invIdx: number, val: string) {
+    updateStrategies(activeTab, (rows) => {
+      const invs = rows[rowIdx].investments;
+      const other = invs.reduce((s, item, i) => i === invIdx || !item.type ? s : s + pct(item.pct), 0);
+      invs[invIdx].pct = val === "" ? "" : String(Math.max(0, Math.min(100 - other, pct(val))));
+      return rows;
+    });
+  }
+
+  function addStrategyRow() {
+    updateStrategies(activeTab, (rows) => {
+      const fixedSum = rows.slice(0, -1).reduce((s, r) => s + r.aumPct, 0);
+      const newRow: StrategyRow = {
+        obj: "realized", period: "3 years", aumPct: 100 - fixedSum >= 10 ? 10 : 0,
+        hurdle: 7.0, stopLoss: 12.0, investments: [{ type: "", pct: "" }],
+      };
+      rows.splice(rows.length - 1, 0, newRow);
+      return recalcRemainder(rows);
+    });
+  }
 
   // ── Save ─────────────────────────────────────────────────────────────────────
 
@@ -135,362 +269,334 @@ export default function NewProfilePage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.replace("/login"); return; }
 
-    const res = await fetch("/api/profile/batch", {
+    // Create all profiles via batch API
+    const profilePayloads = portfolios.slice(0, portfolioCount).map((p, i) => ({
+      name:           p.name,
+      allocation_pct: p.aum,
+      investment_period: "3yr",
+      aum_amount:     rawAmount,
+      aum_currency:   currency,
+      aum_usd:        usdEquiv,
+      divestment:     "never",
+    }));
+
+    const batchRes = await fetch("/api/profile/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
-        portfolios: portfolios.map((p) => ({
-          name:            p.name,
-          allocation_pct:  p.allocation_pct,
-          divestment:      p.divestment,
-          investment_period: p.investment_period,
-          aum_amount:      aumDisplay,
-          aum_currency:    aumCurrency,
-          aum_usd:         aumUSD,
-        })),
-        universe_type: universeType,
-        universe_key:  universeKey || "mega10",
-        hurdle_components: { inflation, borrowing, index_return: indexReturn, opex, alpha_target: alpha },
+        portfolios: profilePayloads,
+        universe_type: "preset",
+        universe_key: "mega10",
+        hurdle_components: { inflation: 0, borrowing: 0, index_return: 0, opex: 0, alpha_target: 0 },
       }),
     });
 
-    const json = await res.json();
-    if (!res.ok) { setError(json.error ?? "Failed to create profiles."); setSaving(false); return; }
+    const batchJson = await batchRes.json();
+    if (!batchRes.ok) { setError(batchJson.error ?? "Failed to create profiles"); setSaving(false); return; }
+
+    const createdProfiles: { id: number }[] = batchJson.profiles;
+
+    // Save strategies for each profile
+    for (let i = 0; i < createdProfiles.length; i++) {
+      const profileId = createdProfiles[i].id;
+      const rows = strategies[i + 1] ?? defaultStrategies();
+      const stratPayload = rows.map((r, si) => ({
+        objective:      r.obj,
+        holding_period: r.period,
+        aum_pct:        r.aumPct,
+        hurdle_rate:    r.hurdle,
+        stop_loss:      r.stopLoss,
+        sort_order:     si,
+        is_remainder:   si === rows.length - 1,
+        investments:    r.investments.filter((inv) => inv.type && pct(inv.pct) > 0)
+          .map((inv, ii) => ({ investment_type: inv.type, allocation_pct: pct(inv.pct), sort_order: ii })),
+      }));
+
+      await fetch(`/api/profile/${profileId}/strategies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ strategies: stratPayload }),
+      });
+    }
+
     await refreshProfiles();
     router.push("/market");
   }
 
-  // ── Progress dots ─────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
 
-  const stepLabels = ["AUM", "Portfolios", "Allocation", "Universe", "Hurdle Rate"];
+  const activeRows = strategies[activeTab] ?? defaultStrategies();
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] pb-28" style={APPLE}>
-      <nav className="bg-[rgba(245,245,247,0.9)] backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-          <button onClick={() => step === 1 ? router.push("/market") : goBack()}
-            className="text-[13px] text-[#0071e3] hover:underline">
-            ← {step === 1 ? "Cancel" : "Back"}
-          </button>
-          <div className="flex flex-col items-center">
-            <span className="text-[12px] font-medium text-[#1d1d1f]">Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}</span>
-            <div className="flex gap-1.5 mt-1">
-              {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-                <div key={i} className="h-1.5 w-6 rounded-full transition-colors"
-                  style={{ background: step > i ? "#0071e3" : "#d2d2d7" }} />
-              ))}
-            </div>
-          </div>
-          <div className="w-16" />
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-100 text-gray-900 p-6" style={APPLE}>
+      <div className="max-w-7xl mx-auto space-y-8">
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        {error && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600 mb-5">{error}</div>}
-
-        {/* ── STEP 1: AUM ── */}
-        {step === 1 && (
+        {/* Header */}
+        <header className="border-b border-gray-300 pb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight mb-1">Assets Under Management</h1>
-            <p className="text-[15px] text-[#6e6e73] mb-8">Enter the total amount you plan to invest across all portfolios.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Wealth Management</h1>
+            <p className="text-sm text-gray-600 mt-1">Configure assets under management, execution strategy, asset mix.</p>
+          </div>
+          <button onClick={() => router.push("/market")} className="text-sm text-blue-600 hover:underline">← Cancel</button>
+        </header>
 
-            <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 space-y-5">
-              {/* Currency selector */}
+        {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>}
+
+        {/* ── SECTION 01: Portfolio Summary ── */}
+        <section className="bg-white p-6 rounded-lg border border-gray-300 space-y-6">
+          <div className="flex items-start gap-2">
+            <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded">01</span>
+            <h2 className="text-xl font-semibold">Portfolio Summary</h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Currency */}
               <div>
-                <label className="text-[13px] font-medium text-[#1d1d1f] block mb-2">Currency</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {CURRENCIES.map((c) => (
-                    <button key={c.code} onClick={() => setAumCurrency(c.code)}
-                      className="py-2.5 px-3 rounded-xl border-2 text-left transition-all"
-                      style={{ borderColor: aumCurrency === c.code ? "#0071e3" : "#e5e5ea", background: aumCurrency === c.code ? "#f0f6ff" : "#fff" }}>
-                      <span className="text-[15px] font-bold" style={{ color: aumCurrency === c.code ? "#0071e3" : "#1d1d1f" }}>{c.symbol} {c.code}</span>
-                      <p className="text-[10px] text-[#aeaeb2] mt-0.5">{c.name}</p>
-                    </button>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                <select value={currency} onChange={(e) => handleCurrencyChange(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:border-blue-500 text-sm">
+                  {Object.entries(CURRENCY_RATES).map(([code]) => (
+                    <option key={code} value={code}>{code}</option>
                   ))}
-                </div>
+                </select>
               </div>
 
               {/* Amount */}
               <div>
-                <label className="text-[13px] font-medium text-[#1d1d1f] block mb-2">Total AUM in {aumCurrency}</label>
-                <div className="flex items-center gap-2 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-3 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
-                  <span className="text-[20px] font-semibold text-[#aeaeb2]">{currency.symbol}</span>
-                  <input type="number" min="0" step="1000" value={aumAmount}
-                    onChange={(e) => setAumAmount(e.target.value)}
-                    placeholder="100,000"
-                    className="flex-1 bg-transparent text-[20px] font-semibold text-[#1d1d1f] focus:outline-none" />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input type="text" value={amountDisplay}
+                  onChange={handleAmountChange}
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-900 font-mono text-right text-sm focus:outline-none focus:border-blue-500" />
               </div>
 
               {/* USD Equivalent */}
-              {aumDisplay > 0 && aumCurrency !== "USD" && (
-                <div className="rounded-xl bg-[#f0f6ff] px-4 py-3 flex items-center justify-between">
-                  <span className="text-[13px] text-[#6e6e73]">USD Equivalent</span>
-                  <span className="text-[18px] font-bold" style={{ color: "#0071e3" }}>
-                    ${aumUSD.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                  </span>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">USD Equivalent</label>
+                <div className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-500 font-mono text-right text-sm select-none">
+                  {usdEquiv.toLocaleString("en-US")}
                 </div>
-              )}
-              {aumDisplay > 0 && aumCurrency === "USD" && (
-                <div className="rounded-xl bg-[#f0f6ff] px-4 py-3 flex items-center justify-between">
-                  <span className="text-[13px] text-[#6e6e73]">Total investable</span>
-                  <span className="text-[18px] font-bold" style={{ color: "#0071e3" }}>
-                    ${aumDisplay.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                  </span>
+              </div>
+            </div>
+
+            {/* Portfolio count */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Number of Portfolios</label>
+              <button type="button" onClick={() => setShowCountMenu(!showCountMenu)}
+                className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-gray-900 text-left text-sm flex justify-between items-center focus:outline-none focus:border-blue-500">
+                <span>{portfolioCount} {portfolioCount === 1 ? "Portfolio" : "Portfolios"}</span>
+                <span className="text-xs text-gray-400">▼</span>
+              </button>
+              {showCountMenu && (
+                <div className="absolute left-0 w-full bg-white border border-gray-300 rounded mt-1 shadow-xl z-50">
+                  {Array.from({ length: MAX_PORTFOLIOS }, (_, i) => i + 1).map((n) => (
+                    <button key={n} type="button" onClick={() => handleCountSelect(n)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-blue-50 transition-colors">
+                      {n} {n === 1 ? "Portfolio" : "Portfolios"}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
           </div>
-        )}
+        </section>
 
-        {/* ── STEP 2: Portfolio Count ── */}
-        {step === 2 && (
-          <div>
-            <h1 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight mb-1">Number of Portfolios</h1>
-            <p className="text-[15px] text-[#6e6e73] mb-2">
-              How many portfolios do you want to create from your {currency.symbol}{aumDisplay.toLocaleString()} AUM?
-            </p>
-            <p className="text-[13px] text-[#aeaeb2] mb-8">Each portfolio can have different stocks, sectors and time horizons.</p>
-
-            <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
-              <div className="grid grid-cols-5 gap-3 mb-6">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} onClick={() => syncPortfolioCount(n)}
-                    className="py-5 rounded-2xl border-2 text-center transition-all font-bold text-[22px]"
-                    style={{ borderColor: portfolioCount === n ? "#0071e3" : "#e5e5ea", background: portfolioCount === n ? "#f0f6ff" : "#fff", color: portfolioCount === n ? "#0071e3" : "#1d1d1f" }}>
-                    {n}
-                    <p className="text-[11px] font-medium mt-1 text-[#aeaeb2]">{n === 1 ? "portfolio" : "portfolios"}</p>
-                  </button>
-                ))}
-              </div>
-              <div className="rounded-xl bg-[#f9f9f9] px-4 py-3 text-center">
-                <p className="text-[13px] text-[#6e6e73]">
-                  Each portfolio will analyse stocks independently with its own allocation and investment horizon.
-                </p>
-              </div>
+        {/* ── SECTION 02: Configure Portfolio AUM ── */}
+        <section className="bg-white p-6 rounded-lg border border-gray-300 space-y-6">
+          <div className="flex justify-between items-center border-b border-gray-200 pb-4">
+            <div className="flex items-start gap-2">
+              <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded">02</span>
+              <h2 className="text-xl font-semibold">Configure Portfolio AUM</h2>
+            </div>
+            <div className="text-xs px-2 py-1 rounded bg-gray-50 border border-gray-200">
+              Total: <span className={`font-bold ${Math.abs(totalAlloc - 100) < 0.1 ? "text-green-600" : "text-red-500"}`}>{totalAlloc}%</span> / 100%
             </div>
           </div>
-        )}
 
-        {/* ── STEP 3: Allocation & Divestment ── */}
-        {step === 3 && (
-          <div>
-            <h1 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight mb-1">Portfolio Configuration</h1>
-            <p className="text-[15px] text-[#6e6e73] mb-2">
-              Name each portfolio, assign allocation % and set your divestment plan.
-            </p>
-            <p className="text-[13px] text-[#aeaeb2] mb-6">Total must equal 100%. Currently: <span className="font-semibold" style={{ color: allocOk ? "#16a34a" : "#dc2626" }}>{totalAlloc.toFixed(1)}%</span></p>
-
-            <div className="space-y-4">
-              {portfolios.map((p, i) => {
-                const allocated = (aumUSD * p.allocation_pct) / 100;
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <th className="pb-3 w-1/3">Portfolio Name</th>
+                <th className="pb-3 w-2/3 pl-4">% of Total AUM</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {Array.from({ length: portfolioCount }, (_, i) => {
+                const p = portfolios[i];
+                const isLast = i === portfolioCount - 1 && portfolioCount > 1;
                 return (
-                  <div key={i} className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white" style={{ background: "#0071e3" }}>{i + 1}</div>
-                      <input type="text" value={p.name}
-                        onChange={(e) => updatePortfolio(i, "name", e.target.value)}
-                        placeholder={`Portfolio ${i + 1}`}
-                        className="flex-1 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 text-[15px] font-semibold text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
-                    </div>
-
-                    <div className="grid sm:grid-cols-3 gap-4">
-                      {/* Allocation */}
-                      <div>
-                        <label className="text-[11px] text-[#aeaeb2] uppercase tracking-wide block mb-1.5">% of AUM</label>
-                        <div className="flex items-center gap-1">
-                          <input type="number" min="0" max="100" step="5" value={p.allocation_pct}
-                            onChange={(e) => updatePortfolio(i, "allocation_pct", parseFloat(e.target.value) || 0)}
-                            className="w-20 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 text-[15px] font-semibold text-[#1d1d1f] text-right focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
-                          <span className="text-[14px] text-[#6e6e73]">%</span>
-                        </div>
-                        <p className="text-[11px] text-[#aeaeb2] mt-1">
-                          ≈ ${allocated.toLocaleString("en-US", { maximumFractionDigits: 0 })} USD
-                        </p>
+                  <tr key={i} className={isLast ? "bg-blue-50" : "hover:bg-gray-50"}>
+                    <td className="py-3 pr-4">
+                      <input type="text" value={p.name} onChange={(e) => handlePortfolioName(i, e.target.value)}
+                        className="w-full bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-blue-500" />
+                      <span className="text-[10px] text-gray-400 block mt-1">
+                        {isLast ? `Portfolio #${i + 1} (Remainder Baseline)` : `Portfolio #${i + 1}`}
+                      </span>
+                    </td>
+                    <td className="py-3 pl-4">
+                      <div className="flex items-center gap-4">
+                        <input type="range" min={0} max={100} value={p.aum}
+                          disabled={isLast}
+                          onChange={(e) => handlePortfolioAum(i, parseInt(e.target.value))}
+                          className={`w-full accent-blue-600 h-2 rounded ${isLast ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`} />
+                        <span className="text-sm font-mono min-w-[50px] text-right bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                          {p.aum}%
+                        </span>
                       </div>
-
-                      {/* Investment Period */}
-                      <div>
-                        <label className="text-[11px] text-[#aeaeb2] uppercase tracking-wide block mb-1.5">Investment Horizon</label>
-                        <div className="flex gap-1">
-                          {PERIOD_OPTIONS.map((opt) => (
-                            <button key={opt.value} onClick={() => updatePortfolio(i, "investment_period", opt.value)}
-                              className="flex-1 py-2 rounded-lg text-[11px] font-medium transition-all border"
-                              style={{ background: p.investment_period === opt.value ? "#0071e3" : "#f5f5f7", color: p.investment_period === opt.value ? "white" : "#6e6e73", borderColor: p.investment_period === opt.value ? "#0071e3" : "#e5e5ea" }}>
-                              {opt.value === "1yr" ? "1yr" : opt.value === "3yr" ? "3yr" : "5yr+"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Divestment */}
-                      <div>
-                        <label className="text-[11px] text-[#aeaeb2] uppercase tracking-wide block mb-1.5">Liquidation Plan</label>
-                        <select value={p.divestment} onChange={(e) => updatePortfolio(i, "divestment", e.target.value)}
-                          className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-3 py-2 text-[14px] text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all">
-                          {DIVESTMENT_OPTIONS.map((d) => (
-                            <option key={d.value} value={d.value}>{d.label} — {d.sub}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
+            </tbody>
+          </table>
+        </section>
+
+        {/* ── SECTION 03: Strategy Configuration ── */}
+        <section className="bg-white p-6 rounded-lg border border-gray-300 space-y-6">
+          <div className="flex items-start gap-2">
+            <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded">03</span>
+            <h2 className="text-xl font-semibold">Configure Individual Portfolio Strategy</h2>
           </div>
-        )}
 
-        {/* ── STEP 4: Universe ── */}
-        {step === 4 && (
-          <div>
-            <h1 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight mb-1">What do you want to scan?</h1>
-            <p className="text-[15px] text-[#6e6e73] mb-8">Choose a stock universe — applied to all {portfolioCount} portfolio{portfolioCount > 1 ? "s" : ""}.</p>
-
-            <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">By Market Cap</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              {MARKET_CAP_PRESETS.map((p) => (
-                <button key={p.key} onClick={() => { setUniverseKey(p.key); setUniverseType("preset"); }}
-                  className="text-left rounded-2xl border-2 p-6 transition-all hover:shadow-md"
-                  style={{ borderColor: universeKey === p.key ? p.color : "#e5e5ea", background: universeKey === p.key ? p.bg : "#fff" }}>
-                  <div className="flex items-baseline justify-between mb-3">
-                    <span className="text-[20px] font-bold" style={{ color: p.color }}>{p.label}</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: p.bg, color: p.color }}>{p.count} stocks</span>
-                  </div>
-                  <p className="text-[13px] font-medium text-[#6e6e73] mb-1">{p.sublabel}</p>
-                  <p className="text-[12px] text-[#aeaeb2] leading-relaxed">{p.description}</p>
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 overflow-x-auto">
+            {Array.from({ length: portfolioCount }, (_, i) => {
+              const idx = i + 1;
+              const isActive = idx === activeTab;
+              return (
+                <button key={idx} type="button" onClick={() => setActiveTab(idx)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${isActive ? "border-blue-500 text-blue-600 bg-white" : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}>
+                  {portfolios[i].name || `Portfolio #${idx}`}
                 </button>
-              ))}
-            </div>
-
-            <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">By Sector</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-              {SECTOR_PRESETS.map((p) => (
-                <button key={p.key} onClick={() => { setUniverseKey(p.key); setUniverseType("preset"); }}
-                  className="text-left rounded-2xl border-2 p-5 transition-all hover:shadow-md"
-                  style={{ borderColor: universeKey === p.key ? "#0071e3" : "#e5e5ea", background: universeKey === p.key ? "#f0f6ff" : "#fff" }}>
-                  <div className="flex items-center gap-2.5 mb-2">
-                    <span className="text-[22px]">{p.icon}</span>
-                    <span className="text-[15px] font-semibold text-[#1d1d1f]">{p.label}</span>
-                  </div>
-                  <p className="text-[12px] text-[#aeaeb2] mb-2 leading-relaxed">{p.description}</p>
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-[#f5f5f7] text-[#6e6e73] font-medium">{p.count} stocks</span>
-                </button>
-              ))}
-            </div>
-
-            <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">Manual Picks</p>
-            <button onClick={() => { setUniverseType("manual"); setUniverseKey("manual"); }}
-              className="w-full text-left rounded-2xl border-2 p-6 transition-all hover:shadow-md"
-              style={{ borderColor: universeKey === "manual" ? "#0071e3" : "#e5e5ea", background: universeKey === "manual" ? "#f0f6ff" : "#fff" }}>
-              <div className="flex items-center gap-4">
-                <span className="text-[28px]">🔍</span>
-                <div>
-                  <p className="text-[16px] font-semibold text-[#1d1d1f]">Pick Stocks Manually</p>
-                  <p className="text-[13px] text-[#aeaeb2] mt-0.5">Add stocks to each portfolio after creation via Edit Profile</p>
-                </div>
-              </div>
-            </button>
+              );
+            })}
           </div>
-        )}
 
-        {/* ── STEP 5: Hurdle Rate ── */}
-        {step === 5 && (
-          <div>
-            <div className="mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl mb-3" style={{ background: "#f0f6ff" }}>
-                <span className="text-[13px] font-medium text-[#0071e3]">
-                  {ALL_PRESETS.find((p) => p.key === universeKey)?.label ?? "Manual Picks"} · Applied to all portfolios
+          {/* Strategy table */}
+          <div className="overflow-x-auto">
+            <div className="bg-gray-50 p-4 rounded-b border-b border-x border-gray-200 min-w-[1200px] space-y-4">
+              <table className="w-full text-left border-collapse table-fixed">
+                <thead>
+                  <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <th className="pb-2 w-[12%]">Objective</th>
+                    <th className="pb-2 px-1 w-[8%]">Holding Period</th>
+                    <th className="pb-2 px-1 w-[6%] text-right">% of AUM</th>
+                    <th className="pb-2 px-1 w-[6%] text-right">Hurdle Rate</th>
+                    <th className="pb-2 px-1 w-[6%] text-right">Stop Loss</th>
+                    <th className="pb-2 px-1 w-[6%] text-right">% Invested</th>
+                    <th className="pb-2 px-0">Investment Allocation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200/60">
+                  {activeRows.map((row, rowIdx) => {
+                    const isLast = rowIdx === activeRows.length - 1;
+                    const periods = STRATEGY_MATRIX[row.obj].periods;
+                    const invested = row.investments.reduce((s, inv) => inv.type ? s + pct(inv.pct) : s, 0);
+
+                    return (
+                      <tr key={rowIdx} className={isLast ? "bg-blue-50 border-dashed" : "hover:bg-gray-100/70"}>
+                        {/* Objective */}
+                        <td className="py-2 pr-1 align-top">
+                          <select value={row.obj} onChange={(e) => handleObjective(rowIdx, e.target.value as Objective)}
+                            className="w-full bg-white border border-gray-300 rounded px-1 py-1 text-xs text-gray-900 focus:outline-none focus:border-blue-500">
+                            <option value="unrealized">Unrealized gain/loss</option>
+                            <option value="realized">Realized gain/loss</option>
+                          </select>
+                        </td>
+                        {/* Period */}
+                        <td className="py-2 px-1 align-top">
+                          <select value={row.period} onChange={(e) => handlePeriod(rowIdx, e.target.value)}
+                            className="w-full bg-white border border-gray-300 rounded px-1 py-1 text-xs text-gray-900 focus:outline-none focus:border-blue-500">
+                            {periods.map((p) => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        </td>
+                        {/* AUM % */}
+                        <td className="py-2 px-1 align-top">
+                          <div className="flex items-center gap-0.5">
+                            <input type="number" value={row.aumPct} disabled={isLast} min={0} max={100}
+                              onChange={(e) => handleStrategyAum(rowIdx, e.target.value)}
+                              className={`w-full bg-white border border-gray-300 rounded px-1 py-1 text-xs text-right font-mono focus:outline-none focus:border-blue-500 ${isLast ? "opacity-60 cursor-not-allowed" : ""}`} />
+                            <span className="text-xs text-gray-400 shrink-0">%</span>
+                          </div>
+                        </td>
+                        {/* Hurdle */}
+                        <td className="py-2 px-1 align-top">
+                          <div className="flex items-center gap-0.5">
+                            <input type="number" value={row.hurdle} step={0.05} min={0} max={100}
+                              onChange={(e) => updateStrategies(activeTab, (rows) => { rows[rowIdx].hurdle = parseFloat(e.target.value) || 0; return rows; })}
+                              className="w-full bg-white border border-gray-300 rounded px-1 py-1 text-xs text-right font-mono text-green-600 focus:outline-none focus:border-blue-500" />
+                            <span className="text-xs text-gray-400 shrink-0">%</span>
+                          </div>
+                        </td>
+                        {/* Stop Loss */}
+                        <td className="py-2 px-1 align-top">
+                          <div className="flex items-center gap-0.5">
+                            <input type="number" value={row.stopLoss} step={0.05} min={0} max={100}
+                              onChange={(e) => updateStrategies(activeTab, (rows) => { rows[rowIdx].stopLoss = parseFloat(e.target.value) || 0; return rows; })}
+                              className="w-full bg-white border border-gray-300 rounded px-1 py-1 text-xs text-right font-mono text-red-500 focus:outline-none focus:border-blue-500" />
+                            <span className="text-xs text-gray-400 shrink-0">%</span>
+                          </div>
+                        </td>
+                        {/* % Invested */}
+                        <td className="py-2 px-1 align-top">
+                          <div className="flex items-center gap-0.5">
+                            <div className="w-full bg-gray-100 border border-gray-200 rounded px-1 py-1 text-xs text-right font-mono select-none">
+                              <span className={invested === 100 ? "text-green-600 font-bold" : "text-gray-500"}>{invested}</span>
+                            </div>
+                            <span className="text-xs text-gray-400 shrink-0">%</span>
+                          </div>
+                        </td>
+                        {/* Investment Allocation */}
+                        <td className="py-2 pl-1 align-top">
+                          <div className="flex flex-row gap-1 overflow-x-auto pb-1">
+                            {row.investments.map((inv, invIdx) => (
+                              <div key={invIdx} className="flex flex-col gap-1 w-[108px] shrink-0 bg-gray-100 p-1.5 rounded border border-gray-200">
+                                <select value={inv.type} onChange={(e) => handleInvType(rowIdx, invIdx, e.target.value)}
+                                  className="bg-white border border-gray-300 rounded px-1.5 py-1 text-[11px] text-gray-900 focus:outline-none focus:border-blue-500 w-full">
+                                  <option value="">-- Select Type --</option>
+                                  {INVESTMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                                {inv.type && (
+                                  <div className="flex items-center gap-1 bg-white px-1 py-0.5 rounded border border-gray-200">
+                                    <input type="number" value={inv.pct} min={0} max={100}
+                                      onChange={(e) => handleInvPct(rowIdx, invIdx, e.target.value)}
+                                      className="w-full bg-transparent text-xs text-right font-mono text-blue-600 focus:outline-none" />
+                                    <span className="text-xs text-gray-400 shrink-0">%</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="flex justify-between items-center text-xs text-gray-500 pt-3 border-t border-gray-200">
+                <button type="button" onClick={addStrategyRow}
+                  className="bg-white hover:bg-gray-50 text-blue-600 text-xs font-medium px-4 py-2 rounded border border-gray-200 transition-colors">
+                  + Add Strategy Objective
+                </button>
+                <span>
+                  Strategy Allocation Sum: <span className="font-bold text-blue-600 ml-1">
+                    {activeRows.reduce((s, r) => s + r.aumPct, 0)}%
+                  </span>
                 </span>
               </div>
-              <h1 className="text-[32px] font-bold text-[#1d1d1f] tracking-tight mb-1">Set Hurdle Rate</h1>
-              <p className="text-[15px] text-[#6e6e73]">Minimum annual return required across all portfolios.</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <label className="text-[13px] font-semibold text-[#1d1d1f] uppercase tracking-widest">Hurdle Rate Components</label>
-                <div className="text-right">
-                  <p className="text-[10px] text-[#aeaeb2] uppercase tracking-wide">Total</p>
-                  <p className="text-[26px] font-bold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                {[
-                  { label: "Inflation Rate",  value: inflation,    setter: setInflation,   hint: "Expected annual inflation",   max: 15 },
-                  { label: "Borrowing Cost",  value: borrowing,    setter: setBorrowing,   hint: "Cost of capital / loan rate", max: 25 },
-                  { label: "Index Return",    value: indexReturn,  setter: setIndexReturn, hint: "Expected S&P 500 return",     max: 25 },
-                  { label: "OpEx / Fees",     value: opex,         setter: setOpex,        hint: "Management fees / expenses",  max: 5  },
-                  { label: "Alpha Target",    value: alpha,        setter: setAlpha,       hint: "Extra return above market",   max: 20 },
-                ].map(({ label, value, setter, hint, max }) => (
-                  <div key={label} className="flex items-center gap-4">
-                    <div className="w-36 shrink-0">
-                      <p className="text-[13px] text-[#1d1d1f] font-medium leading-tight">{label}</p>
-                      <p className="text-[10px] text-[#aeaeb2] mt-0.5">{hint}</p>
-                    </div>
-                    <div className="flex-1">
-                      <input type="range" min={0} max={max} step={0.5} value={value}
-                        onChange={(e) => setter(parseFloat(e.target.value))}
-                        className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                        style={{ accentColor: "#0071e3" }} />
-                      <div className="flex justify-between text-[9px] text-[#aeaeb2] mt-0.5 px-0.5">
-                        <span>0%</span><span>{max}%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <input type="number" value={value} step={0.5} min={0} max={max}
-                        onChange={(e) => setter(Math.min(max, parseFloat(e.target.value) || 0))}
-                        className="w-16 rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-2 py-1.5 text-[14px] text-right font-semibold focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
-                      <span className="text-[13px] text-[#6e6e73]">%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="mt-5 bg-white rounded-2xl border border-black/[0.08] shadow-sm p-5">
-              <p className="text-[12px] font-semibold text-[#aeaeb2] uppercase tracking-wide mb-3">Summary</p>
-              <div className="space-y-2">
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-[#6e6e73]">Total AUM</span>
-                  <span className="font-semibold text-[#1d1d1f]">{currency.symbol}{aumDisplay.toLocaleString()} {aumCurrency} {aumCurrency !== "USD" && `(~$${aumUSD.toLocaleString()} USD)`}</span>
-                </div>
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-[#6e6e73]">Portfolios</span>
-                  <span className="font-semibold text-[#1d1d1f]">{portfolioCount} portfolio{portfolioCount > 1 ? "s" : ""}</span>
-                </div>
-                {portfolios.map((p, i) => (
-                  <div key={i} className="flex justify-between text-[12px] pl-3 border-l-2 border-[#e5e5ea]">
-                    <span className="text-[#6e6e73]">{p.name}</span>
-                    <span className="text-[#1d1d1f]">{p.allocation_pct}% · Divest: {DIVESTMENT_OPTIONS.find((d) => d.value === p.divestment)?.label}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between text-[13px] pt-2 border-t border-[#f0f0f0]">
-                  <span className="text-[#6e6e73]">Hurdle Rate</span>
-                  <span className="font-bold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</span>
-                </div>
-              </div>
             </div>
           </div>
-        )}
-      </div>
+        </section>
 
-      {/* Sticky footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-black/[0.06] px-6 py-4 flex justify-end z-20">
-        {step < TOTAL_STEPS ? (
-          <button onClick={goNext}
-            className="px-10 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:opacity-90 shadow-lg"
-            style={{ background: "#0071e3", minWidth: 200 }}>
-            Continue →
-          </button>
-        ) : (
+        {/* Save */}
+        <div className="flex justify-end pb-8">
           <button onClick={handleSave} disabled={saving}
             className="px-10 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 shadow-lg"
-            style={{ background: "#0071e3", minWidth: 240 }}>
-            {saving ? "Creating…" : `Create ${portfolioCount} Portfolio${portfolioCount > 1 ? "s" : ""} →`}
+            style={{ background: "#0071e3" }}>
+            {saving ? "Creating Portfolios…" : `Create ${portfolioCount} Portfolio${portfolioCount > 1 ? "s" : ""} →`}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

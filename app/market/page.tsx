@@ -24,7 +24,9 @@ interface MarketResult {
   decision_summary: string | null; error: string | null; scanned_at: string | null;
 }
 
-function hurdleFor(p: Profile) {
+function hurdleFor(p: Profile & { effective_hurdle?: number }) {
+  // If strategies exist, effective_hurdle is pre-computed weighted average
+  if (p.effective_hurdle != null) return p.effective_hurdle;
   return p.inflation + p.borrowing + p.index_return + p.opex + p.alpha_target;
 }
 
