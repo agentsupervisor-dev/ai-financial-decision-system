@@ -10,9 +10,7 @@ CREATE TABLE IF NOT EXISTS strategy_investments (
 CREATE INDEX IF NOT EXISTS idx_strategy_investments_strategy ON strategy_investments (strategy_id, sort_order);
 
 ALTER TABLE strategy_investments ENABLE ROW LEVEL SECURITY;
-
--- Users can read/write investments that belong to their own strategies
--- (strategy → portfolio_strategies → user_id)
+DROP POLICY IF EXISTS "Users manage own strategy_investments" ON strategy_investments;
 CREATE POLICY "Users manage own strategy_investments"
   ON strategy_investments
   USING (
@@ -35,8 +33,7 @@ CREATE TABLE IF NOT EXISTS investment_type_universe (
 );
 
 ALTER TABLE investment_type_universe ENABLE ROW LEVEL SECURITY;
-
--- All authenticated users can read this reference table (it's a lookup, no user data)
+DROP POLICY IF EXISTS "Authenticated users can read investment_type_universe" ON investment_type_universe;
 CREATE POLICY "Authenticated users can read investment_type_universe"
   ON investment_type_universe FOR SELECT
   USING (auth.role() = 'authenticated');

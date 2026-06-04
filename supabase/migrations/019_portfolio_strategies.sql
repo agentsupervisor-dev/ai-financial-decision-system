@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS portfolio_strategies (
 CREATE INDEX IF NOT EXISTS idx_portfolio_strategies_profile ON portfolio_strategies (profile_id, sort_order);
 
 ALTER TABLE portfolio_strategies ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own strategies" ON portfolio_strategies;
 CREATE POLICY "Users manage own strategies"
   ON portfolio_strategies
   USING (auth.uid() = user_id)
