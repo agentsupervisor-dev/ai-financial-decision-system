@@ -478,13 +478,13 @@ export default function NewProfilePage() {
                 </colgroup>
                 <thead>
                   <tr className="border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                    <th className="pb-2 pr-1 text-left whitespace-nowrap">Objective</th>
-                    <th className="pb-2 px-1 text-left whitespace-nowrap">Period</th>
-                    <th className="pb-2 px-1 text-right whitespace-nowrap">% AUM</th>
-                    <th className="pb-2 px-1 text-right whitespace-nowrap">Hurdle %</th>
-                    <th className="pb-2 px-1 text-right whitespace-nowrap">Stop Loss %</th>
-                    <th className="pb-2 px-1 text-right whitespace-nowrap">Invested %</th>
-                    <th className="pb-2 pl-1 text-left whitespace-nowrap">Investment Allocation</th>
+                    <th className="pb-2 pr-1 text-center whitespace-nowrap">Objective</th>
+                    <th className="pb-2 px-1 text-center whitespace-nowrap">Period</th>
+                    <th className="pb-2 px-1 text-center whitespace-nowrap">% AUM</th>
+                    <th className="pb-2 px-1 text-center whitespace-nowrap">Hurdle %</th>
+                    <th className="pb-2 px-1 text-center whitespace-nowrap">Stop Loss %</th>
+                    <th className="pb-2 px-1 text-center whitespace-nowrap">Invested %</th>
+                    <th className="pb-2 pl-1 text-center whitespace-nowrap">Investment Allocation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200/60">
