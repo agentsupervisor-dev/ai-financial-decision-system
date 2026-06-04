@@ -186,6 +186,23 @@ function ProfilePanel({
   const [heldSymbols, setHeldSymbols] = useState<Set<string>>(new Set());
   const [sellingSymbol, setSellingSymbol] = useState<string | null>(null);
   const [confirmSellSymbol, setConfirmSellSymbol] = useState<string | null>(null);
+  // Live prices fetched async after results load
+  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change_pct: number }>>({});
+
+  // Fetch live prices once results are available
+  useEffect(() => {
+    const scanned = results.filter((r) => r.scanned_at !== null);
+    if (!scanned.length) return;
+    const missing = scanned.filter((r) => !r.price).map((r) => r.symbol);
+    if (!missing.length) return; // all prices already in scan data
+    fetch("/api/market/prices", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols: missing }),
+    }).then((r) => r.json()).then((d) => {
+      if (d.prices) setLivePrices(d.prices);
+    }).catch(() => {});
+  }, [results, token]);
 
   // Load VIP positions to know which stocks are already held
   useEffect(() => {
@@ -395,6 +412,9 @@ function ProfilePanel({
                     {groupResults.map((stock) => {
                       const isOpen = expandedStock === `${profile.id}-${stock.symbol}`;
                       const excess = stock.expected_return != null ? stock.expected_return - hurdle : null;
+                      // Use live price if available, fall back to stored scan price
+                      const displayPrice  = livePrices[stock.symbol]?.price     ?? stock.price;
+                      const displayChange = livePrices[stock.symbol]?.change_pct ?? stock.change_pct;
 
                       return (
                         <div key={stock.symbol} className="border-b border-[#f0f0f0] last:border-0">
@@ -409,11 +429,11 @@ function ProfilePanel({
                                   <span className="text-[#aeaeb2] ml-1.5 hidden sm:inline">{stock.sector}</span>
                                 </span>
                                 <span className="font-semibold text-[#1d1d1f] text-right pr-1">
-                                  {stock.price != null ? `$${stock.price.toFixed(2)}` : "—"}
+                                  {displayPrice != null ? `$${displayPrice.toFixed(2)}` : "—"}
                                 </span>
                                 <span className="text-right pr-1 font-medium"
-                                  style={{ color: (stock.change_pct ?? 0) >= 0 ? "#34c759" : "#ff3b30" }}>
-                                  {stock.change_pct != null ? `${stock.change_pct >= 0 ? "+" : ""}${stock.change_pct.toFixed(1)}%` : ""}
+                                  style={{ color: (displayChange ?? 0) >= 0 ? "#34c759" : "#ff3b30" }}>
+                                  {displayChange != null ? `${displayChange >= 0 ? "+" : ""}${displayChange.toFixed(1)}%` : ""}
                                 </span>
                                 <span className="text-[#6e6e73] text-right pr-1">
                                   {stock.composite_score != null && <>Score <b className="text-[#1d1d1f]">{stock.composite_score.toFixed(0)}</b></>}
@@ -527,7 +547,7 @@ function ProfilePanel({
           symbol={buyTarget.symbol}
           company_name={buyTarget.company_name}
           sector={buyTarget.sector}
-          current_price={buyTarget.price}
+          current_price={livePrices[buyTarget.symbol]?.price ?? buyTarget.price}
           expected_return={buyTarget.expected_return}
           hurdle_rate={hurdle}
           profile_id={profile.id}
