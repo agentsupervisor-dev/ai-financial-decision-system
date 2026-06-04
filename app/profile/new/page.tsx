@@ -475,16 +475,25 @@ export default function NewProfilePage() {
           {/* Strategy table */}
           <div className="overflow-x-auto">
             <div className="bg-gray-50 p-4 rounded-b border-b border-x border-gray-200 min-w-[1200px] space-y-4">
-              <table className="w-full text-left border-collapse table-fixed">
+              <table className="w-full text-left border-collapse" style={{ tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "14%" }} />  {/* Objective */}
+                  <col style={{ width: "10%" }} />  {/* Holding Period */}
+                  <col style={{ width: "7%" }} />   {/* % of AUM */}
+                  <col style={{ width: "7%" }} />   {/* Hurdle Rate */}
+                  <col style={{ width: "7%" }} />   {/* Stop Loss */}
+                  <col style={{ width: "7%" }} />   {/* % Invested */}
+                  <col />                           {/* Investment Allocation — takes rest */}
+                </colgroup>
                 <thead>
                   <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    <th className="pb-2 w-[12%]">Objective</th>
-                    <th className="pb-2 px-1 w-[8%]">Holding Period</th>
-                    <th className="pb-2 px-1 w-[6%] text-right">% of AUM</th>
-                    <th className="pb-2 px-1 w-[6%] text-right">Hurdle Rate</th>
-                    <th className="pb-2 px-1 w-[6%] text-right">Stop Loss</th>
-                    <th className="pb-2 px-1 w-[6%] text-right">% Invested</th>
-                    <th className="pb-2 px-0">Investment Allocation</th>
+                    <th className="pb-2 pr-1 text-left">Objective</th>
+                    <th className="pb-2 px-1 text-left">Holding Period</th>
+                    <th className="pb-2 px-1 text-right">% of AUM</th>
+                    <th className="pb-2 px-1 text-right">Hurdle Rate</th>
+                    <th className="pb-2 px-1 text-right">Stop Loss</th>
+                    <th className="pb-2 px-1 text-right">% Invested</th>
+                    <th className="pb-2 pl-1 text-left">Investment Allocation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200/60">
