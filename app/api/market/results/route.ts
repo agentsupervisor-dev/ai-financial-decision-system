@@ -79,37 +79,14 @@ export async function GET(req: NextRequest) {
     if (!latestBySymbol[scan.symbol]) latestBySymbol[scan.symbol] = scan;
   }
 
-  // Live prices — sequential with 150ms gap to avoid FMP rate limits
-  const apiKey = process.env.FMP_API_KEY;
-  const prices: Record<string, { price: number; changesPercentage: number }> = {};
-  if (apiKey) {
-    for (const symbol of symbols) {
-      try {
-        const res = await fetch(
-          `https://financialmodelingprep.com/stable/quote?symbol=${symbol}&apikey=${apiKey}`,
-          { cache: "no-store" }
-        );
-        if (res.ok) {
-          const data = await res.json() as { symbol: string; price: number; changePercentage: number }[];
-          const q = data?.[0];
-          if (q?.price) prices[q.symbol] = { price: q.price, changesPercentage: q.changePercentage };
-        }
-      } catch { /* skip this symbol */ }
-      // Small delay between requests to stay within FMP rate limits
-      await new Promise((r) => setTimeout(r, 150));
-    }
-  }
-
+  // Use price stored at scan time — fast, no FMP rate limit risk
+  // (Live price refresh happens via the Buy modal or ↻ Refresh button on Portfolio page)
   const results = tickers.map((t) => {
-    const scan  = latestBySymbol[t.symbol] ?? null;
-    const live  = prices[t.symbol] ?? null;
-    // Use live price if available, fall back to price stored at scan time
-    const displayPrice    = live?.price            ?? scan?.price      ?? null;
-    const displayChangePct = live?.changesPercentage ?? scan?.change_pct ?? null;
+    const scan = latestBySymbol[t.symbol] ?? null;
     return {
       symbol: t.symbol, company_name: t.company_name, sector: t.sector, exchange: t.exchange,
-      price:            displayPrice,
-      change_pct:       displayChangePct,
+      price:            scan?.price      ?? null,
+      change_pct:       scan?.change_pct ?? null,
       forensic_score:   scan?.forensic_score ?? null,
       macro_score:      scan?.macro_score ?? null,
       asymmetry_score:  scan?.asymmetry_score ?? null,

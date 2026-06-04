@@ -216,16 +216,24 @@ function ProfilePanel({
     onRefresh();
   }
 
+  const [scanError, setScanError] = useState<string | null>(null);
+
   async function runScan() {
     setScanning(true);
+    setScanError(null);
     const body: Record<string, unknown> = { universe: profile.universe_key };
     if (profile.universe_key === "manual") body.profile_id = profile.id;
-    await fetch("/api/market/scan", {
+    const res = await fetch("/api/market/scan", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    onRefresh();
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setScanError(json.error ?? "Scan failed");
+    } else {
+      onRefresh();
+    }
     setScanning(false);
   }
 
@@ -336,8 +344,29 @@ function ProfilePanel({
       {/* Expanded: stock list sorted BUY → HOLD → REJECT */}
       {expanded && (
         <div className="border-t border-[#f0f0f0]">
-          {!hasData ? (
-            <p className="text-[12px] text-[#aeaeb2] text-center py-5">No scan data — click Scan Now.</p>
+          {scanError && (
+            <div className="mx-5 mt-4 px-4 py-3 rounded-xl bg-red-50 border border-red-100">
+              <p className="text-[13px] text-red-600 font-medium">{scanError}</p>
+              {profile.universe_key === "manual" && (
+                <Link href={`/profile/${profile.id}`} className="text-[12px] text-[#0071e3] hover:underline mt-1 block">
+                  → Edit profile to add stocks
+                </Link>
+              )}
+            </div>
+          )}
+          {!hasData && !scanError ? (
+            <div className="text-center py-5">
+              <p className="text-[12px] text-[#aeaeb2]">
+                {profile.universe_key === "manual"
+                  ? "Add stocks to this profile first, then click Scan Now"
+                  : "Click Scan Now to analyse these stocks"}
+              </p>
+              {profile.universe_key === "manual" && (
+                <Link href={`/profile/${profile.id}`} className="text-[12px] text-[#0071e3] hover:underline mt-1 block">
+                  → Add stocks to profile
+                </Link>
+              )}
+            </div>
           ) : scannedAt && (
             <p className="text-[10px] text-[#aeaeb2] px-4 pt-2 pb-0">
               Scores are AI estimates from the scan on {new Date(scannedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}. The same stock may score differently across profiles if scanned at different times — LLM outputs vary slightly between runs.
