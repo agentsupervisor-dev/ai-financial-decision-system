@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -9,11 +9,8 @@ type InvestmentPeriod = "1yr" | "3yr" | "5yr";
 interface ProfileForm {
   name: string;
   investment_period: InvestmentPeriod;
-  inflation: number;
-  borrowing: number;
-  index_return: number;
-  opex: number;
-  alpha_target: number;
+  inflation: number; borrowing: number; index_return: number; opex: number; alpha_target: number;
+  universe_key?: string;
 }
 
 const PERIOD_LABELS: Record<InvestmentPeriod, { short: string; long: string }> = {
@@ -31,35 +28,78 @@ export default function EditProfilePage() {
     name: "", investment_period: "3yr",
     inflation: 3.5, borrowing: 7.5, index_return: 12.0, opex: 0.5, alpha_target: 6.5,
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [token, setToken]       = useState<string>("");
+
+  // Manual picks stock management
+  const [tickers, setTickers]         = useState<string[]>([]);
+  const [tickerSearch, setTickerSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<{ symbol: string; company_name: string; exchange: string }[]>([]);
+  const [searching, setSearching]     = useState(false);
+  const [addingTicker, setAddingTicker] = useState<string | null>(null);
+  const [removingTicker, setRemovingTicker] = useState<string | null>(null);
+
+  const loadTickers = useCallback(async (tok: string) => {
+    const res = await fetch(`/api/profile/${id}/tickers`, { headers: { Authorization: `Bearer ${tok}` } });
+    const json = await res.json();
+    setTickers((json.tickers ?? []).map((t: { symbol: string }) => t.symbol));
+  }, [id]);
 
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/login"); return; }
+      setToken(session.access_token);
 
-      const res = await fetch("/api/profile", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } });
       const json = await res.json();
       const profile = (json.profiles ?? []).find((p: { id: number }) => String(p.id) === id);
       if (profile) {
         setForm({
-          name: profile.name,
-          investment_period: profile.investment_period,
-          inflation: profile.inflation,
-          borrowing: profile.borrowing,
-          index_return: profile.index_return,
-          opex: profile.opex,
-          alpha_target: profile.alpha_target,
+          name: profile.name, investment_period: profile.investment_period,
+          inflation: profile.inflation, borrowing: profile.borrowing,
+          index_return: profile.index_return, opex: profile.opex,
+          alpha_target: profile.alpha_target, universe_key: profile.universe_key,
         });
+        if (profile.universe_key === "manual") await loadTickers(session.access_token);
       }
       setLoading(false);
     }
     load();
-  }, [router, id]);
+  }, [router, id, loadTickers]);
+
+  async function searchTickers(q: string) {
+    setTickerSearch(q);
+    if (q.length < 1) { setSearchResults([]); return; }
+    setSearching(true);
+    const res = await fetch(`/api/tickers/search?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json();
+    setSearchResults(json.results ?? []);
+    setSearching(false);
+  }
+
+  async function addTicker(symbol: string) {
+    setAddingTicker(symbol);
+    await fetch(`/api/profile/${id}/tickers`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol }),
+    });
+    await loadTickers(token);
+    setTickerSearch(""); setSearchResults([]);
+    setAddingTicker(null);
+  }
+
+  async function removeTicker(symbol: string) {
+    setRemovingTicker(symbol);
+    await fetch(`/api/profile/${id}/tickers?symbol=${symbol}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+    });
+    setTickers((prev) => prev.filter((s) => s !== symbol));
+    setRemovingTicker(null);
+  }
 
   const totalHurdle = form.inflation + form.borrowing + form.index_return + form.opex + form.alpha_target;
 
@@ -172,6 +212,59 @@ export default function EditProfilePage() {
             ))}
           </div>
         </div>
+
+        {/* Stock management — only shown for manual picks profiles */}
+        {form.universe_key === "manual" && (
+          <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6 mb-5">
+            <h2 className="text-[13px] font-semibold text-[#1d1d1f] uppercase tracking-widest mb-4">
+              Stocks in this Profile
+              <span className="ml-2 text-[11px] text-[#aeaeb2] normal-case font-normal">({tickers.length} added)</span>
+            </h2>
+
+            {/* Search */}
+            <div className="relative mb-3">
+              <input type="text" value={tickerSearch} onChange={(e) => searchTickers(e.target.value)}
+                placeholder="Search by ticker or company name e.g. AAPL"
+                className="w-full rounded-xl border border-[#d2d2d7] bg-[#f5f5f7] px-4 py-2.5 text-[14px] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all" />
+              {searching && <span className="absolute right-3 top-3 text-[11px] text-[#aeaeb2]">Searching…</span>}
+            </div>
+
+            {/* Search results */}
+            {searchResults.length > 0 && (
+              <div className="border border-[#e5e5ea] rounded-xl overflow-hidden mb-4">
+                {searchResults.map((r) => (
+                  <button key={r.symbol} onClick={() => addTicker(r.symbol)}
+                    disabled={tickers.includes(r.symbol) || addingTicker === r.symbol}
+                    className="w-full text-left px-4 py-2.5 flex items-center justify-between border-b border-[#f0f0f0] last:border-0 hover:bg-[#f5f5f7] transition-colors disabled:opacity-40">
+                    <span className="text-[13px] font-semibold text-[#1d1d1f]">{r.symbol}
+                      <span className="text-[12px] text-[#6e6e73] font-normal ml-2">{r.company_name}</span>
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-[#f0f6ff] text-[#0071e3] font-medium">
+                      {tickers.includes(r.symbol) ? "Added ✓" : addingTicker === r.symbol ? "Adding…" : `+ Add · ${r.exchange}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Current tickers */}
+            {tickers.length === 0 ? (
+              <p className="text-[12px] text-[#aeaeb2] text-center py-4 border-2 border-dashed border-[#e5e5ea] rounded-xl">
+                No stocks added yet — search above
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tickers.map((sym) => (
+                  <div key={sym} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f0f6ff] border border-[#c7dcff]">
+                    <span className="text-[13px] font-semibold text-[#0071e3]">{sym}</span>
+                    <button onClick={() => removeTicker(sym)} disabled={removingTicker === sym}
+                      className="text-[#aeaeb2] hover:text-red-500 transition-colors text-[15px] leading-none disabled:opacity-40">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-600 mb-5">{error}</div>
