@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   const { data: scans } = await sb
     .from("market_scans")
-    .select("symbol, forensic_score, macro_score, asymmetry_score, composite_score, confidence, expected_return, decision_summary, error, scanned_at")
+    .select("symbol, forensic_score, macro_score, asymmetry_score, composite_score, confidence, expected_return, decision_summary, error, scanned_at, price, change_pct")
     .eq("universe", scanUniverse)
     .in("symbol", symbols)
     .order("scanned_at", { ascending: false });
@@ -102,11 +102,14 @@ export async function GET(req: NextRequest) {
 
   const results = tickers.map((t) => {
     const scan  = latestBySymbol[t.symbol] ?? null;
-    const price = prices[t.symbol] ?? null;
+    const live  = prices[t.symbol] ?? null;
+    // Use live price if available, fall back to price stored at scan time
+    const displayPrice    = live?.price            ?? scan?.price      ?? null;
+    const displayChangePct = live?.changesPercentage ?? scan?.change_pct ?? null;
     return {
       symbol: t.symbol, company_name: t.company_name, sector: t.sector, exchange: t.exchange,
-      price:            price?.price ?? null,
-      change_pct:       price?.changesPercentage ?? null,
+      price:            displayPrice,
+      change_pct:       displayChangePct,
       forensic_score:   scan?.forensic_score ?? null,
       macro_score:      scan?.macro_score ?? null,
       asymmetry_score:  scan?.asymmetry_score ?? null,

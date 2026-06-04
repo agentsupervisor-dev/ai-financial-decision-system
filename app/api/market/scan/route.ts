@@ -56,10 +56,28 @@ export async function POST(req: NextRequest) {
   const NEUTRAL_HURDLE = 0;
   const DEFAULT_PERIOD = "3yr";
 
+  const apiKey = process.env.FMP_API_KEY;
+
+  async function fetchPrice(sym: string): Promise<{ price: number | null; change_pct: number | null }> {
+    if (!apiKey) return { price: null, change_pct: null };
+    try {
+      const res = await fetch(
+        `https://financialmodelingprep.com/stable/quote?symbol=${sym}&apikey=${apiKey}`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) return { price: null, change_pct: null };
+      const data = await res.json() as { price: number; changePercentage: number }[];
+      return { price: data?.[0]?.price ?? null, change_pct: data?.[0]?.changePercentage ?? null };
+    } catch { return { price: null, change_pct: null }; }
+  }
+
   const results = [];
   for (const symbol of symbols) {
     const result = await analyzeTicker(symbol, NEUTRAL_HURDLE, DEFAULT_PERIOD);
     results.push(result);
+
+    // Fetch price at scan time — stored as fallback for display
+    const { price, change_pct } = await fetchPrice(symbol);
 
     await sb.from("market_scans").insert({
       symbol,
@@ -72,6 +90,8 @@ export async function POST(req: NextRequest) {
       expected_return:  result.expected_return,
       decision_summary: result.decision_summary,
       error:            result.error ?? null,
+      price,
+      change_pct,
     });
   }
 
