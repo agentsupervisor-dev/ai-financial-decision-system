@@ -299,7 +299,13 @@ export default function NewProfilePage() {
               </div>
 
               <div>
-                <label className="text-[13px] font-medium text-[#1d1d1f] block mb-3">Hurdle Rate Components</label>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-[13px] font-medium text-[#1d1d1f]">Hurdle Rate Components</label>
+                  <div className="text-right">
+                    <p className="text-[10px] text-[#aeaeb2] uppercase tracking-wide">Total Hurdle Rate</p>
+                    <p className="text-[22px] font-bold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
+                  </div>
+                </div>
                 <div className="space-y-4">
                   {[
                     { label: "Inflation Rate",  value: inflation,    setter: setInflation,   hint: "Expected annual inflation",   max: 15  },
@@ -341,11 +347,7 @@ export default function NewProfilePage() {
             </div>
 
             {/* Sticky create bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-black/[0.06] px-6 py-4 flex items-center justify-between z-20">
-              <div>
-                <p className="text-[12px] text-[#aeaeb2]">Total Hurdle Rate</p>
-                <p className="text-[20px] font-bold" style={{ color: "#0071e3" }}>{hurdle.toFixed(1)}%</p>
-              </div>
+            <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-black/[0.06] px-6 py-4 flex justify-end z-20">
               <button onClick={handleSave} disabled={saving}
                 className="px-10 py-3.5 rounded-xl text-[15px] font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 shadow-lg"
                 style={{ background: "#0071e3", minWidth: 240 }}>
