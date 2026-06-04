@@ -113,15 +113,6 @@ export default function NewProfilePage() {
   const rate        = CURRENCY_RATES[currency] ?? 1;
   const usdEquiv    = Math.round(rawAmount * rate);
   const totalAlloc  = portfolios.slice(0, portfolioCount).reduce((s, p) => s + p.aum, 0);
-  const locale      = CURRENCY_LOCALES[currency] ?? "en-US";
-
-  function strategiesFor(idx: number): StrategyRow[] {
-    if (!strategies[idx]) {
-      setStrategies((prev) => ({ ...prev, [idx]: defaultStrategies() }));
-      return defaultStrategies();
-    }
-    return strategies[idx];
-  }
 
   // ── Section 01 handlers ─────────────────────────────────────────────────────
 
@@ -270,7 +261,7 @@ export default function NewProfilePage() {
     if (!session) { router.replace("/login"); return; }
 
     // Create all profiles via batch API
-    const profilePayloads = portfolios.slice(0, portfolioCount).map((p, i) => ({
+    const profilePayloads = portfolios.slice(0, portfolioCount).map((p) => ({
       name:           p.name,
       allocation_pct: p.aum,
       investment_period: "3yr",
@@ -486,14 +477,14 @@ export default function NewProfilePage() {
                   <col />                           {/* Investment Allocation — takes rest */}
                 </colgroup>
                 <thead>
-                  <tr className="border-b border-gray-200 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    <th className="pb-2 pr-1 text-left">Objective</th>
-                    <th className="pb-2 px-1 text-left">Holding Period</th>
-                    <th className="pb-2 px-1 text-right">% of AUM</th>
-                    <th className="pb-2 px-1 text-right">Hurdle Rate</th>
-                    <th className="pb-2 px-1 text-right">Stop Loss</th>
-                    <th className="pb-2 px-1 text-right">% Invested</th>
-                    <th className="pb-2 pl-1 text-left">Investment Allocation</th>
+                  <tr className="border-b border-gray-200 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    <th className="pb-2 pr-1 text-left whitespace-nowrap">Objective</th>
+                    <th className="pb-2 px-1 text-left whitespace-nowrap">Period</th>
+                    <th className="pb-2 px-1 text-right whitespace-nowrap">% AUM</th>
+                    <th className="pb-2 px-1 text-right whitespace-nowrap">Hurdle %</th>
+                    <th className="pb-2 px-1 text-right whitespace-nowrap">Stop Loss %</th>
+                    <th className="pb-2 px-1 text-right whitespace-nowrap">Invested %</th>
+                    <th className="pb-2 pl-1 text-left whitespace-nowrap">Investment Allocation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200/60">
