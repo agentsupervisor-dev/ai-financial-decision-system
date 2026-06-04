@@ -79,25 +79,24 @@ export async function GET(req: NextRequest) {
     if (!latestBySymbol[scan.symbol]) latestBySymbol[scan.symbol] = scan;
   }
 
-  // Live prices in parallel
+  // Live prices — sequential with 150ms gap to avoid FMP rate limits
   const apiKey = process.env.FMP_API_KEY;
   const prices: Record<string, { price: number; changesPercentage: number }> = {};
   if (apiKey) {
-    const priceResults = await Promise.allSettled(
-      symbols.map(async (symbol) => {
+    for (const symbol of symbols) {
+      try {
         const res = await fetch(
           `https://financialmodelingprep.com/stable/quote?symbol=${symbol}&apikey=${apiKey}`,
           { cache: "no-store" }
         );
-        if (!res.ok) return null;
-        const data = await res.json() as { symbol: string; price: number; changePercentage: number }[];
-        return data?.[0] ?? null;
-      })
-    );
-    for (const r of priceResults) {
-      if (r.status === "fulfilled" && r.value) {
-        prices[r.value.symbol] = { price: r.value.price, changesPercentage: r.value.changePercentage };
-      }
+        if (res.ok) {
+          const data = await res.json() as { symbol: string; price: number; changePercentage: number }[];
+          const q = data?.[0];
+          if (q?.price) prices[q.symbol] = { price: q.price, changesPercentage: q.changePercentage };
+        }
+      } catch { /* skip this symbol */ }
+      // Small delay between requests to stay within FMP rate limits
+      await new Promise((r) => setTimeout(r, 150));
     }
   }
 
