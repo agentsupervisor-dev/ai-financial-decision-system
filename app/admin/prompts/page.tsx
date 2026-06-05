@@ -115,7 +115,7 @@ export default function AdminPromptsPage() {
   }
 
   // System tab state
-  type LLMResult = { ok: boolean; reply: string; ms: number; via?: string; model?: string };
+  type LLMResult = { ok: boolean; reply: string; ms: number; via?: string; model?: string; checks?: { name: string; ok: boolean; detail: string }[] };
   const [llmStatus, setLlmStatus] = useState<Record<string, LLMResult> | null>(null);
   const [testingLLMs, setTestingLLMs] = useState(false);
 
@@ -394,11 +394,11 @@ export default function AdminPromptsPage() {
               </div>
 
               {!llmStatus && !testingLLMs && (
-                <p className="text-[13px] text-[#aeaeb2] text-center py-6">Click "Test Connections" to ping all three LLMs.</p>
+                <p className="text-[13px] text-[#aeaeb2] text-center py-6">Click "Test Connections" to ping all three LLMs and FMP.</p>
               )}
 
               {testingLLMs && (
-                <p className="text-[13px] text-[#6e6e73] text-center py-6">Pinging Claude, Gemini, and DeepSeek…</p>
+                <p className="text-[13px] text-[#6e6e73] text-center py-6">Pinging Claude, Gemini, DeepSeek, and FMP…</p>
               )}
 
               {llmStatus && !testingLLMs && (
@@ -406,14 +406,26 @@ export default function AdminPromptsPage() {
                   {Object.entries(llmStatus).map(([key, r]) => (
                     <div key={key} className="flex items-start justify-between p-4 rounded-xl"
                       style={{ background: r.ok ? "#f0fdf4" : "#fff5f5", border: `1px solid ${r.ok ? "#bbf7d0" : "#fecaca"}` }}>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[13px] font-semibold" style={{ color: r.ok ? "#15803d" : "#dc2626" }}>
                             {r.ok ? "✓" : "✗"} {r.model ?? key}
                           </span>
                           {r.via && <span className="text-[11px] text-[#6e6e73]">via {r.via}</span>}
                         </div>
-                        {!r.ok && <p className="text-[12px] text-red-600 mt-1 font-mono break-all">{r.reply}</p>}
+                        {r.checks && (
+                          <div className="mt-2 space-y-1">
+                            {r.checks.map((c) => (
+                              <div key={c.name} className="flex items-baseline gap-2">
+                                <span className="text-[12px] font-medium" style={{ color: c.ok ? "#15803d" : "#dc2626" }}>
+                                  {c.ok ? "✓" : "✗"} {c.name}
+                                </span>
+                                <span className="text-[11px] text-[#6e6e73] truncate">{c.detail}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {!r.ok && !r.checks && <p className="text-[12px] text-red-600 mt-1 font-mono break-all">{r.reply}</p>}
                       </div>
                       <span className="text-[12px] text-[#aeaeb2] whitespace-nowrap ml-4">{r.ms}ms</span>
                     </div>

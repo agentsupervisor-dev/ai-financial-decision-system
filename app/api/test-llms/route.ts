@@ -62,6 +62,54 @@ async function testGemini() {
   }
 }
 
+async function testFMP() {
+  const apiKey = process.env.FMP_API_KEY;
+  if (!apiKey) return { ok: false, reply: "FMP_API_KEY not set", ms: 0, endpoints: [] as string[] };
+  const start = Date.now();
+  const base = "https://financialmodelingprep.com";
+  const ticker = "AAPL";
+
+  const checks: { name: string; ok: boolean; detail: string }[] = [];
+
+  // 1. Company profile (all plans)
+  try {
+    const res = await fetch(`${base}/stable/profile?symbol=${ticker}&apikey=${apiKey}`, { cache: "no-store" });
+    const data = await res.json();
+    const name = Array.isArray(data) ? (data[0] as Record<string, unknown>)?.companyName : null;
+    checks.push({ name: "Profile", ok: !!name, detail: name ? String(name) : JSON.stringify(data).slice(0, 120) });
+  } catch (e) {
+    checks.push({ name: "Profile", ok: false, detail: String(e) });
+  }
+
+  // 2. Income statement (starter+)
+  try {
+    const res = await fetch(`${base}/stable/income-statement?symbol=${ticker}&limit=1&apikey=${apiKey}`, { cache: "no-store" });
+    const data = await res.json();
+    const ok = Array.isArray(data) && data.length > 0;
+    checks.push({ name: "Income Statement", ok, detail: ok ? `${data.length} period(s) returned` : JSON.stringify(data).slice(0, 120) });
+  } catch (e) {
+    checks.push({ name: "Income Statement", ok: false, detail: String(e) });
+  }
+
+  // 3. Earnings call transcript (premium/ultimate)
+  try {
+    const res = await fetch(`${base}/stable/earning_call_transcript?symbol=${ticker}&limit=1&apikey=${apiKey}`, { cache: "no-store" });
+    const data = await res.json();
+    const ok = Array.isArray(data) && data.length > 0 && !!(data[0] as Record<string, unknown>)?.content;
+    checks.push({ name: "Earnings Transcript", ok, detail: ok ? `${String((data[0] as Record<string, unknown>).content).length} chars` : JSON.stringify(data).slice(0, 120) });
+  } catch (e) {
+    checks.push({ name: "Earnings Transcript", ok: false, detail: String(e) });
+  }
+
+  const allOk = checks.every((c) => c.ok);
+  return {
+    ok: allOk,
+    reply: checks.map((c) => `${c.ok ? "✓" : "✗"} ${c.name}: ${c.detail}`).join(" | "),
+    ms: Date.now() - start,
+    checks,
+  };
+}
+
 async function testDeepSeek() {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return { ok: false, reply: "OPENROUTER_API_KEY not set — asymmetry agent falls back to Claude", ms: 0 };
@@ -92,10 +140,11 @@ export async function GET(req: NextRequest) {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [claude, gemini, deepseek] = await Promise.all([testClaude(), testGemini(), testDeepSeek()]);
+  const [claude, gemini, deepseek, fmp] = await Promise.all([testClaude(), testGemini(), testDeepSeek(), testFMP()]);
   return NextResponse.json({
     claude:   { model: "Claude Haiku 4.5 (Bedrock)",        ...claude },
     gemini:   { model: `Gemini 2.5 Flash (Vertex AI)`,      ...gemini },
     deepseek: { model: "DeepSeek Chat (OpenRouter)",         ...deepseek },
+    fmp:      { model: "Financial Modeling Prep (AAPL)",     ...fmp },
   });
 }
