@@ -193,9 +193,18 @@ export default function ProfilePage() {
 
   // ── Portfolio allocation sliders ──
   function handleSlider(idx: number, val: string) {
-    const updated = portfolios.map((p, i) => i === idx ? { ...p, aumPct: Math.max(0, Math.min(100, Number(val) || 0)) } : { ...p });
+    const updated = portfolios.map(p => ({ ...p }));
+    updated[idx].aumPct = Math.max(0, Math.min(100, Number(val) || 0));
+
     let sum = 0;
     for (let i = 0; i < pCount - 1; i++) sum += updated[i].aumPct;
+
+    // If non-last sliders exceed 100, clamp the one just changed
+    if (sum > 100 && idx < pCount - 1) {
+      updated[idx].aumPct = 100 - (sum - updated[idx].aumPct);
+      sum = 100;
+    }
+
     updated[pCount - 1] = { ...updated[pCount - 1], aumPct: Math.max(0, 100 - sum) };
     setPortfolios(updated);
   }
