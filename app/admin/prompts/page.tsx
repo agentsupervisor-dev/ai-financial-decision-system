@@ -118,6 +118,8 @@ export default function AdminPromptsPage() {
   type LLMResult = { ok: boolean; reply: string; ms: number; via?: string; model?: string; checks?: { name: string; ok: boolean; detail: string }[] };
   const [llmStatus, setLlmStatus] = useState<Record<string, LLMResult> | null>(null);
   const [testingLLMs, setTestingLLMs] = useState(false);
+  const [fmpStatus, setFmpStatus] = useState<LLMResult | null>(null);
+  const [testingFMP, setTestingFMP] = useState(false);
 
   async function testLLMs() {
     if (!token) return;
@@ -125,8 +127,18 @@ export default function AdminPromptsPage() {
     setLlmStatus(null);
     const res = await fetch("/api/test-llms", { headers: { Authorization: `Bearer ${token}` } });
     const json = await res.json();
-    setLlmStatus(json);
+    setLlmStatus(json.llms ?? json);
     setTestingLLMs(false);
+  }
+
+  async function testFMP() {
+    if (!token) return;
+    setTestingFMP(true);
+    setFmpStatus(null);
+    const res = await fetch("/api/test-llms", { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json();
+    setFmpStatus(json.fmp ?? null);
+    setTestingFMP(false);
   }
 
   // Tickers state
@@ -380,58 +392,97 @@ export default function AdminPromptsPage() {
           <div>
             <div className="mb-6">
               <h1 className="text-[28px] font-semibold text-[#1d1d1f] tracking-tight">System</h1>
-              <p className="mt-1 text-[15px] text-[#6e6e73]">Verify that all LLM connections are working correctly.</p>
+              <p className="mt-1 text-[15px] text-[#6e6e73]">Verify that all connections are working correctly.</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-[17px] font-semibold text-[#1d1d1f]">LLM Connections</h2>
-                <button onClick={testLLMs} disabled={testingLLMs}
-                  className="px-5 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                  style={{ background: "#0071e3" }}>
-                  {testingLLMs ? "Testing…" : "Test Connections"}
-                </button>
+            <div className="space-y-4">
+              {/* LLM Connections card */}
+              <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-[17px] font-semibold text-[#1d1d1f]">LLM Connections</h2>
+                    <p className="text-[13px] text-[#6e6e73] mt-0.5">Claude · Gemini · DeepSeek</p>
+                  </div>
+                  <button onClick={testLLMs} disabled={testingLLMs}
+                    className="px-5 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    style={{ background: "#0071e3" }}>
+                    {testingLLMs ? "Testing…" : "Test LLMs"}
+                  </button>
+                </div>
+
+                {!llmStatus && !testingLLMs && (
+                  <p className="text-[13px] text-[#aeaeb2] text-center py-6">Click &quot;Test LLMs&quot; to ping Claude, Gemini, and DeepSeek.</p>
+                )}
+                {testingLLMs && (
+                  <p className="text-[13px] text-[#6e6e73] text-center py-6">Pinging Claude, Gemini, and DeepSeek…</p>
+                )}
+                {llmStatus && !testingLLMs && (
+                  <div className="space-y-3">
+                    {Object.entries(llmStatus).map(([key, r]) => (
+                      <div key={key} className="flex items-start justify-between p-4 rounded-xl"
+                        style={{ background: r.ok ? "#f0fdf4" : "#fff5f5", border: `1px solid ${r.ok ? "#bbf7d0" : "#fecaca"}` }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[13px] font-semibold" style={{ color: r.ok ? "#15803d" : "#dc2626" }}>
+                              {r.ok ? "✓" : "✗"} {r.model ?? key}
+                            </span>
+                            {r.via && <span className="text-[11px] text-[#6e6e73]">via {r.via}</span>}
+                          </div>
+                          {!r.ok && <p className="text-[12px] text-red-600 mt-1 font-mono break-all">{r.reply}</p>}
+                        </div>
+                        <span className="text-[12px] text-[#aeaeb2] whitespace-nowrap ml-4">{r.ms}ms</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {!llmStatus && !testingLLMs && (
-                <p className="text-[13px] text-[#aeaeb2] text-center py-6">Click "Test Connections" to ping all three LLMs and FMP.</p>
-              )}
-
-              {testingLLMs && (
-                <p className="text-[13px] text-[#6e6e73] text-center py-6">Pinging Claude, Gemini, DeepSeek, and FMP…</p>
-              )}
-
-              {llmStatus && !testingLLMs && (
-                <div className="space-y-3">
-                  {Object.entries(llmStatus).map(([key, r]) => (
-                    <div key={key} className="flex items-start justify-between p-4 rounded-xl"
-                      style={{ background: r.ok ? "#f0fdf4" : "#fff5f5", border: `1px solid ${r.ok ? "#bbf7d0" : "#fecaca"}` }}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[13px] font-semibold" style={{ color: r.ok ? "#15803d" : "#dc2626" }}>
-                            {r.ok ? "✓" : "✗"} {r.model ?? key}
-                          </span>
-                          {r.via && <span className="text-[11px] text-[#6e6e73]">via {r.via}</span>}
-                        </div>
-                        {r.checks && (
-                          <div className="mt-2 space-y-1">
-                            {r.checks.map((c) => (
-                              <div key={c.name} className="flex items-baseline gap-2">
-                                <span className="text-[12px] font-medium" style={{ color: c.ok ? "#15803d" : "#dc2626" }}>
-                                  {c.ok ? "✓" : "✗"} {c.name}
-                                </span>
-                                <span className="text-[11px] text-[#6e6e73] truncate">{c.detail}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {!r.ok && !r.checks && <p className="text-[12px] text-red-600 mt-1 font-mono break-all">{r.reply}</p>}
-                      </div>
-                      <span className="text-[12px] text-[#aeaeb2] whitespace-nowrap ml-4">{r.ms}ms</span>
-                    </div>
-                  ))}
+              {/* FMP Data API card */}
+              <div className="bg-white rounded-2xl border border-black/[0.08] shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-[17px] font-semibold text-[#1d1d1f]">FMP Data API</h2>
+                    <p className="text-[13px] text-[#6e6e73] mt-0.5">Profile · Income Statement · Earnings Transcript</p>
+                  </div>
+                  <button onClick={testFMP} disabled={testingFMP}
+                    className="px-5 py-2 rounded-xl text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    style={{ background: "#0071e3" }}>
+                    {testingFMP ? "Testing…" : "Test FMP"}
+                  </button>
                 </div>
-              )}
+
+                {!fmpStatus && !testingFMP && (
+                  <p className="text-[13px] text-[#aeaeb2] text-center py-6">Click &quot;Test FMP&quot; to verify Financial Modeling Prep endpoints.</p>
+                )}
+                {testingFMP && (
+                  <p className="text-[13px] text-[#6e6e73] text-center py-6">Testing FMP endpoints against AAPL…</p>
+                )}
+                {fmpStatus && !testingFMP && (
+                  <div className="flex items-start justify-between p-4 rounded-xl"
+                    style={{ background: fmpStatus.ok ? "#f0fdf4" : "#fff5f5", border: `1px solid ${fmpStatus.ok ? "#bbf7d0" : "#fecaca"}` }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[13px] font-semibold" style={{ color: fmpStatus.ok ? "#15803d" : "#dc2626" }}>
+                          {fmpStatus.ok ? "✓" : "✗"} {fmpStatus.model}
+                        </span>
+                      </div>
+                      {fmpStatus.checks && (
+                        <div className="space-y-1.5">
+                          {fmpStatus.checks.map((c) => (
+                            <div key={c.name} className="flex items-baseline gap-2">
+                              <span className="text-[12px] font-medium shrink-0" style={{ color: c.ok ? "#15803d" : "#dc2626" }}>
+                                {c.ok ? "✓" : "✗"} {c.name}
+                              </span>
+                              <span className="text-[11px] text-[#6e6e73]">{c.detail}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[12px] text-[#aeaeb2] whitespace-nowrap ml-4">{fmpStatus.ms}ms</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

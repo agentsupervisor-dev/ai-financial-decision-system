@@ -91,12 +91,31 @@ async function testFMP() {
     checks.push({ name: "Income Statement", ok: false, detail: String(e) });
   }
 
-  // 3. Earnings call transcript (premium/ultimate)
+  // 3. Earnings call transcript (ultimate) — try stable then v3
   try {
-    const res = await fetch(`${base}/stable/earning_call_transcript?symbol=${ticker}&limit=1&apikey=${apiKey}`, { cache: "no-store" });
-    const data = await res.json();
-    const ok = Array.isArray(data) && data.length > 0 && !!(data[0] as Record<string, unknown>)?.content;
-    checks.push({ name: "Earnings Transcript", ok, detail: ok ? `${String((data[0] as Record<string, unknown>).content).length} chars` : JSON.stringify(data).slice(0, 120) });
+    let data: unknown[] = [];
+    let usedPath = "";
+
+    const stableRes = await fetch(`${base}/stable/earning_call_transcript?symbol=${ticker}&limit=1&apikey=${apiKey}`, { cache: "no-store" });
+    const stableData = await stableRes.json();
+    if (Array.isArray(stableData) && stableData.length > 0 && (stableData[0] as Record<string, unknown>)?.content) {
+      data = stableData; usedPath = "stable";
+    } else {
+      const year = new Date().getFullYear();
+      const v3Res = await fetch(`${base}/v3/earning_call_transcript/${ticker}?year=${year}&quarter=4&apikey=${apiKey}`, { cache: "no-store" });
+      const v3Data = await v3Res.json();
+      if (Array.isArray(v3Data) && v3Data.length > 0 && (v3Data[0] as Record<string, unknown>)?.content) {
+        data = v3Data; usedPath = "v3";
+      } else {
+        const v3Res2 = await fetch(`${base}/v3/earning_call_transcript/${ticker}?year=${year}&quarter=1&apikey=${apiKey}`, { cache: "no-store" });
+        const v3Data2 = await v3Res2.json();
+        if (Array.isArray(v3Data2) && v3Data2.length > 0) { data = v3Data2; usedPath = "v3-q1"; }
+      }
+    }
+
+    const ok = data.length > 0 && !!(data[0] as Record<string, unknown>)?.content;
+    const chars = ok ? String((data[0] as Record<string, unknown>).content).length : 0;
+    checks.push({ name: "Earnings Transcript", ok, detail: ok ? `${chars} chars (${usedPath})` : `[] on both stable+v3 — may need to enable transcript access on FMP dashboard` });
   } catch (e) {
     checks.push({ name: "Earnings Transcript", ok: false, detail: String(e) });
   }
@@ -142,9 +161,11 @@ export async function GET(req: NextRequest) {
 
   const [claude, gemini, deepseek, fmp] = await Promise.all([testClaude(), testGemini(), testDeepSeek(), testFMP()]);
   return NextResponse.json({
-    claude:   { model: "Claude Haiku 4.5 (Bedrock)",        ...claude },
-    gemini:   { model: `Gemini 2.5 Flash (Vertex AI)`,      ...gemini },
-    deepseek: { model: "DeepSeek Chat (OpenRouter)",         ...deepseek },
-    fmp:      { model: "Financial Modeling Prep (AAPL)",     ...fmp },
+    llms: {
+      claude:   { model: "Claude Haiku 4.5 (Bedrock)",   ...claude },
+      gemini:   { model: "Gemini 2.5 Flash (Vertex AI)", ...gemini },
+      deepseek: { model: "DeepSeek Chat (OpenRouter)",    ...deepseek },
+    },
+    fmp: { model: "Financial Modeling Prep (AAPL)", ...fmp },
   });
 }
