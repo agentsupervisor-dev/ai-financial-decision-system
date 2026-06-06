@@ -433,7 +433,7 @@ export default function ProfilePage() {
 
         {/* ── 04 Build Portfolio ── */}
         <Section id="s4" step="04" title="Build Portfolio" open={open.s4} onToggle={toggle}>
-          <div style={{ display: "flex", borderBottom: "1px solid rgba(0,0,0,0.08)", overflowX: "auto", marginBottom: 16 }}>
+          <div style={{ display: "flex", borderBottom: "1px solid rgba(0,0,0,0.08)", overflowX: "auto", marginBottom: 0 }}>
             {Array.from({ length: pCount }).map((_, i) => (
               <button key={i} type="button" onClick={() => { setTab4(i + 1); setVtab(0); }} style={tab4 === i + 1 ? S.tabA : S.tabI}>
                 {portfolios[i].name || `Portfolio #${i + 1}`}
@@ -441,18 +441,63 @@ export default function ProfilePage() {
             ))}
           </div>
 
+          {/* ── Dynamic allocation banner — updates live with Section 02 sliders ── */}
+          <div style={{ display: "flex", gap: 0, overflowX: "auto", borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: 20 }}>
+            {Array.from({ length: pCount }).map((_, i) => {
+              const isActive  = i === tab4 - 1;
+              const portBudget = rawAum * portfolios[i].aumPct / 100;
+              return (
+                <div key={i} onClick={() => { setTab4(i + 1); setVtab(0); }}
+                  style={{ flex: 1, minWidth: 140, padding: "12px 16px", cursor: "pointer", borderRight: "1px solid rgba(0,0,0,0.06)", background: isActive ? "#f0f6ff" : "#fafafa", borderBottom: isActive ? "2px solid #0071e3" : "2px solid transparent", transition: "background 0.15s" }}>
+                  <div style={{ fontSize: 11, color: "#6e6e73", marginBottom: 3, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    {portfolios[i].name || `Portfolio ${i + 1}`}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: isActive ? "#0071e3" : "#1d1d1f", fontFamily: "ui-monospace,monospace" }}>
+                      {portfolios[i].aumPct}%
+                    </span>
+                    <span style={{ fontSize: 12, color: "#6e6e73", fontFamily: "ui-monospace,monospace" }}>
+                      {fmt(portBudget)} {currency}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Total check */}
+            <div style={{ minWidth: 120, padding: "12px 16px", background: "#f5f5f7", borderLeft: "1px solid rgba(0,0,0,0.08)" }}>
+              <div style={{ fontSize: 11, color: "#6e6e73", marginBottom: 3, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>Total AUM</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "ui-monospace,monospace", color: totalPct === 100 ? "#1a7f3c" : "#c0392b" }}>
+                  {totalPct}%
+                </span>
+                <span style={{ fontSize: 12, color: "#6e6e73", fontFamily: "ui-monospace,monospace" }}>
+                  {fmt(rawAum)} {currency}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 20, minHeight: 300 }}>
 
-            {/* Vertical strategy tabs */}
+            {/* Vertical strategy tabs — with dollar amounts */}
             <div style={{ width: 220, display: "flex", flexDirection: "column", gap: 6, borderRight: "1px solid rgba(0,0,0,0.08)", paddingRight: 16, flexShrink: 0 }}>
-              {activeStrats4.map((r, idx) => (
-                <button key={idx} type="button" onClick={() => setVtab(idx)} style={vtab === idx ? S.vtabA : S.vtabI}>
-                  <span>{r.obj === "unrealized" ? "Unrealized" : "Realized"} ({r.period})</span>
-                  <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, background: vtab === idx ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.06)", padding: "2px 6px", borderRadius: 6 }}>
-                    {r.aumPct}%
-                  </span>
-                </button>
-              ))}
+              {activeStrats4.map((r, idx) => {
+                const portBudget  = rawAum * (portfolios[tab4 - 1]?.aumPct ?? 0) / 100;
+                const stratBudget = portBudget * r.aumPct / 100;
+                return (
+                  <button key={idx} type="button" onClick={() => setVtab(idx)} style={vtab === idx ? S.vtabA : S.vtabI}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                      <span style={{ fontSize: 12 }}>{r.obj === "unrealized" ? "Unrealized" : "Realized"} ({r.period})</span>
+                      <span style={{ fontSize: 11, fontFamily: "ui-monospace,monospace", opacity: 0.8 }}>
+                        {fmt(stratBudget)} {currency}
+                      </span>
+                    </div>
+                    <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, background: vtab === idx ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.06)", padding: "2px 6px", borderRadius: 6, flexShrink: 0 }}>
+                      {r.aumPct}%
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Spreadsheet */}
