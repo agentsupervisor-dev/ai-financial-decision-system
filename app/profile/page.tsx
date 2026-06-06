@@ -378,8 +378,8 @@ export default function ProfilePage() {
               <table style={{ ...S.tbl, tableLayout: "fixed", minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...S.th, width: "4%" }}></th>
-                    {[["Objective","15%"],["Holding Period","12%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","42%"]].map(([h, w]) => (
+                    <th style={{ ...S.th, width: 28 }}></th>
+                    {[["Objective","15%"],["Holding Period","12%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","46%"]].map(([h, w]) => (
                       <th key={h} style={{ ...S.th, width: w }}>{h}</th>
                     ))}
                   </tr>
@@ -390,8 +390,8 @@ export default function ProfilePage() {
                     const cellStyle = { padding: "8px 8px 8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" };
                     return (
                       <tr key={ri}>
-                        {/* Delete — shown on all rows except when only 1 row remains */}
-                        <td style={{ ...cellStyle, paddingRight: 4, textAlign: "center" as const }}>
+                        {/* Delete */}
+                        <td style={{ ...cellStyle, padding: "8px 2px", textAlign: "center" as const, width: 28 }}>
                           {activeStrats3.length > 1 && (
                             <button type="button"
                               onClick={() => {
@@ -400,7 +400,7 @@ export default function ProfilePage() {
                                 rows[rows.length - 1] = { ...rows[rows.length - 1], aumPct: Math.max(0, 100 - (sum - rows[rows.length - 1].aumPct)) };
                                 setStrats(p => ({ ...p, [tab3]: rows }));
                               }}
-                              style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 15, padding: "2px 4px", lineHeight: 1 }}>
+                              style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
                               ×
                             </button>
                           )}
@@ -618,7 +618,7 @@ export default function ProfilePage() {
                                     )}
                                   </th>
                                 ))}
-                                <th style={{ ...S.sTh, width: "4%"  }}></th>
+                                <th style={{ ...S.sTh, width: 28 }}></th>
                                 <th style={{ ...S.sTh, width: "7%",  textAlign: "right" }}>Units</th>
                                 <th style={{ ...S.sTh, width: "10%", textAlign: "right" }}>Amount ({currency})</th>
                               </tr>
@@ -633,9 +633,9 @@ export default function ProfilePage() {
 
                                 return (
                                   <tr key={realIdx}>
-                                    <td style={{ ...S.sTd, textAlign: "center" }}>
+                                    <td style={{ ...S.sTd, textAlign: "center", width: 28, padding: "2px" }}>
                                       <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
-                                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 15, padding: "2px 4px", lineHeight: 1 }}>×</button>
+                                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>×</button>
                                     </td>
                                     <td style={S.sTd}><div style={{ ...S.sRo, textAlign: "left" }}>{stock.exchange || "NASDAQ"}</div></td>
                                     <td style={S.sTd}><input type="text" placeholder="--" value={stock.ticker} onChange={e => patch("ticker", e.target.value.toUpperCase())} style={{ ...S.sInp, textAlign: "left" }} /></td>
