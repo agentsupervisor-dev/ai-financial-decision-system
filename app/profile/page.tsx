@@ -267,30 +267,34 @@ export default function ProfilePage() {
         <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
           style={{ fontSize: 18, fontWeight: 700, color: "#1e293b", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block", marginBottom: 12, padding: "4px 0" }} />
 
-        {/* ── 01 Portfolio Summary ── */}
-        <Section id="s1" step="01" title="Portfolio Summary" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
+        {/* ── 01 Portfolio Baseline ── */}
+        <Section id="s1" step="01" title="Portfolio Baseline" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
             <div>
-              <label style={S.lbl}>Currency</label>
+              <label style={S.lbl}>Currency Base</label>
               <select value={currency} onChange={e => setCurrency(e.target.value)} style={S.sel}>
                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.lbl}>Amount</label>
+              <label style={S.lbl}>Baseline Volume Allocation</label>
               <input type="text" value={fmt(rawAum)} onChange={e => setRawAum(parseMoney(e.target.value))} style={S.inp} />
             </div>
             <div>
-              <label style={S.lbl}>USD Equivalent</label>
+              <label style={S.lbl}>Global Index Equivalent (USD)</label>
               <div style={S.disp}>{Math.round(usdEq).toLocaleString("en-US")}</div>
             </div>
-            <div>
-              <label style={S.lbl}>Number of Portfolios</label>
-              <select value={pCount}
-                onChange={e => { const n = Number(e.target.value); setPCount(n); if (tab3 > n) setTab3(1); if (tab4 > n) setTab4(1); }}
-                style={S.sel}>
-                {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n === 1 ? "Portfolio" : "Portfolios"}</option>)}
-              </select>
+          </div>
+          <div>
+            <label style={S.lbl}>Structure Node Count</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button key={n} type="button"
+                  onClick={() => { setPCount(n); if (tab3 > n) setTab3(1); if (tab4 > n) setTab4(1); }}
+                  style={{ padding: "7px 18px", fontSize: 13, fontWeight: 500, borderRadius: 4, border: "1px solid", borderColor: pCount === n ? "#2563eb" : "#cbd5e1", background: pCount === n ? "#2563eb" : "#fff", color: pCount === n ? "#fff" : "#475569", cursor: "pointer", fontFamily: FONT }}>
+                  {n === 1 ? "1 Portfolio Component" : `${n} Portfolios`}
+                </button>
+              ))}
             </div>
           </div>
         </Section>
