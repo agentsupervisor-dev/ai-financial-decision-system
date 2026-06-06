@@ -290,7 +290,23 @@ export default function ProfilePage() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
               {[1, 2, 3, 4, 5].map(n => (
                 <button key={n} type="button"
-                  onClick={() => { setPCount(n); if (tab3 > n) setTab3(1); if (tab4 > n) setTab4(1); }}
+                  onClick={() => {
+                    if (n > pCount) {
+                      // Copy Portfolio A's strategy STRUCTURE to new portfolios.
+                      // Dollar amounts are computed from each portfolio's own AUM% (Section 02)
+                      // and each strategy's own % (Section 03) — so no values need overriding.
+                      const template: Strategy[] = JSON.parse(JSON.stringify(strats[1] ?? [makeStrategy()]));
+                      const newStrats = { ...strats };
+                      for (let i = pCount + 1; i <= n; i++) {
+                        const alreadyConfigured = newStrats[i]?.some(s => s.investments.some(inv => inv.type));
+                        if (!alreadyConfigured) newStrats[i] = JSON.parse(JSON.stringify(template));
+                      }
+                      setStrats(newStrats);
+                    }
+                    setPCount(n);
+                    if (tab3 > n) setTab3(1);
+                    if (tab4 > n) setTab4(1);
+                  }}
                   style={{ padding: "7px 18px", fontSize: 13, fontWeight: 500, borderRadius: 4, border: "1px solid", borderColor: pCount === n ? "#2563eb" : "#cbd5e1", background: pCount === n ? "#2563eb" : "#fff", color: pCount === n ? "#fff" : "#475569", cursor: "pointer", fontFamily: FONT }}>
                   {n === 1 ? "1 Portfolio Component" : `${n} Portfolios`}
                 </button>
