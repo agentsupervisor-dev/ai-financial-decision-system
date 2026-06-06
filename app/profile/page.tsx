@@ -433,15 +433,8 @@ export default function ProfilePage() {
 
         {/* ── 04 Build Portfolio ── */}
         <Section id="s4" step="04" title="Build Portfolio" open={open.s4} onToggle={toggle}>
-          <div style={{ display: "flex", borderBottom: "1px solid rgba(0,0,0,0.08)", overflowX: "auto", marginBottom: 0 }}>
-            {Array.from({ length: pCount }).map((_, i) => (
-              <button key={i} type="button" onClick={() => { setTab4(i + 1); setVtab(0); }} style={tab4 === i + 1 ? S.tabA : S.tabI}>
-                {portfolios[i].name || `Portfolio #${i + 1}`}
-              </button>
-            ))}
-          </div>
 
-          {/* ── Dynamic allocation banner — updates live with Section 02 sliders ── */}
+          {/* ── Allocation banner — acts as tab selector + live budget display ── */}
           <div style={{ display: "flex", gap: 0, overflowX: "auto", borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: 20 }}>
             {Array.from({ length: pCount }).map((_, i) => {
               const isActive  = i === tab4 - 1;
