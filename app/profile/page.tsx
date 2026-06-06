@@ -44,17 +44,17 @@ const parseMoney = (s: string) => Math.floor(Number(s.replace(/[^0-9.-]+/g, ""))
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const S = {
-  card:  { background: "#fff", border: "1px solid #c8d0db", borderRadius: 0, marginBottom: 16, fontFamily: FONT },
-  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", cursor: "pointer", borderBottom: "1px solid #e8ecf0", userSelect: "none" as const },
-  badge: { background: "#0071e3", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 },
-  title: { fontSize: 16, fontWeight: 600, color: "#1d1d1f", margin: 0 },
-  pill:  { fontSize: 12, fontFamily: "ui-monospace,monospace", color: "#6e6e73", background: "#f0f0f5", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.06)" },
-  body:  { padding: "0 24px 24px" },
+  card:  { background: "#fff", border: "1px solid #d0d8e4", borderRadius: 6, marginBottom: 16, fontFamily: FONT, overflow: "hidden" as const },
+  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", cursor: "pointer", userSelect: "none" as const },
+  badge: { background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 4 },
+  title: { fontSize: 15, fontWeight: 600, color: "#1e293b", margin: 0 },
+  pill:  { fontSize: 12, fontFamily: "ui-monospace,monospace", color: "#64748b", background: "#f1f5f9", padding: "3px 10px", borderRadius: 4, border: "1px solid #e2e8f0" },
+  body:  { padding: "0 20px 20px" },
   grid:  { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 20 },
-  lbl:   { display: "block", fontSize: 13, color: "#6e6e73", marginBottom: 6, fontWeight: 500 },
-  sel:   { width: "100%", background: "#f5f5f7", color: "#1d1d1f", borderRadius: 10, padding: "10px 12px", fontSize: 15, border: "1px solid rgba(0,0,0,0.08)", outline: "none", fontFamily: FONT, boxSizing: "border-box" as const },
-  inp:   { width: "100%", background: "#f5f5f7", color: "#1d1d1f", borderRadius: 10, padding: "10px 12px", fontSize: 15, border: "1px solid rgba(0,0,0,0.08)", outline: "none", fontFamily: "ui-monospace,monospace", textAlign: "right" as const, boxSizing: "border-box" as const },
-  disp:  { width: "100%", background: "#f5f5f7", color: "#6e6e73", borderRadius: 10, padding: "10px 12px", fontSize: 15, border: "1px solid rgba(0,0,0,0.06)", height: 43, display: "flex", alignItems: "center", justifyContent: "flex-end", boxSizing: "border-box" as const, fontFamily: "ui-monospace,monospace" },
+  lbl:   { display: "block", fontSize: 12, color: "#64748b", marginBottom: 5, fontWeight: 500, textTransform: "uppercase" as const, letterSpacing: "0.04em" },
+  sel:   { width: "100%", background: "#fff", color: "#1e293b", borderRadius: 4, padding: "8px 10px", fontSize: 14, border: "1px solid #cbd5e1", outline: "none", fontFamily: FONT, boxSizing: "border-box" as const },
+  inp:   { width: "100%", background: "#fff", color: "#1e293b", borderRadius: 4, padding: "8px 10px", fontSize: 14, border: "1px solid #cbd5e1", outline: "none", fontFamily: "ui-monospace,monospace", textAlign: "right" as const, boxSizing: "border-box" as const },
+  disp:  { width: "100%", background: "#f8fafc", color: "#64748b", borderRadius: 4, padding: "8px 10px", fontSize: 14, border: "1px solid #cbd5e1", height: 39, display: "flex", alignItems: "center", justifyContent: "flex-end", boxSizing: "border-box" as const, fontFamily: "ui-monospace,monospace" },
   tbl:   { width: "100%", borderCollapse: "collapse" as const },
   th:    { paddingBottom: 10, fontSize: 11, fontWeight: 600, textTransform: "uppercase" as const, color: "#6e6e73", borderBottom: "1px solid rgba(0,0,0,0.08)", letterSpacing: "0.04em" },
   td:    { padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" },
@@ -250,10 +250,10 @@ export default function ProfilePage() {
 
   // ── Render ──
   return (
-    <div style={{ minHeight: "100vh", background: "#dfe4ec", fontFamily: FONT }}>
+    <div style={{ minHeight: "100vh", background: "#e8edf4", fontFamily: FONT }}>
 
       {/* Nav */}
-      <nav style={{ background: "#fff", borderBottom: "1px solid #c8d0db", padding: "0 40px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 50 }}>
+      <nav style={{ background: "#fff", borderBottom: "1px solid #d0d8e4", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 48, position: "sticky", top: 0, zIndex: 50 }}>
         <Link href="/" style={{ fontSize: 14, color: "#0071e3", textDecoration: "none" }}>← Dashboard</Link>
         <span style={{ fontSize: 15, fontWeight: 600, color: "#1d1d1f" }}>Wealth Management Workspace</span>
         <button onClick={save} disabled={saving} style={{ padding: "7px 20px", background: saved ? "#34c759" : saving ? "#aeaeb2" : "#0071e3", color: "#fff", border: "none", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer", fontFamily: FONT, transition: "background 0.2s" }}>
@@ -261,71 +261,77 @@ export default function ProfilePage() {
         </button>
       </nav>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px 48px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 48px" }}>
 
         {/* Workspace name */}
         <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
-          style={{ fontSize: 20, fontWeight: 700, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block", marginBottom: 12, padding: "4px 0" }} />
+          style={{ fontSize: 18, fontWeight: 700, color: "#1e293b", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block", marginBottom: 12, padding: "4px 0" }} />
 
-        {/* ── 01 Portfolio Baseline ── */}
-        <Section id="s1" step="01" title="Portfolio Baseline" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
-          <div style={S.grid}>
+        {/* ── 01 Portfolio Summary ── */}
+        <Section id="s1" step="01" title="Portfolio Summary" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
             <div>
-              <label style={S.lbl}>Currency Base</label>
+              <label style={S.lbl}>Currency</label>
               <select value={currency} onChange={e => setCurrency(e.target.value)} style={S.sel}>
                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.lbl}>Baseline Volume Allocation</label>
+              <label style={S.lbl}>Amount</label>
               <input type="text" value={fmt(rawAum)} onChange={e => setRawAum(parseMoney(e.target.value))} style={S.inp} />
             </div>
             <div>
-              <label style={S.lbl}>Global Index Equivalent (USD)</label>
-              <div style={S.disp}>${Math.round(usdEq).toLocaleString("en-US")}</div>
+              <label style={S.lbl}>USD Equivalent</label>
+              <div style={S.disp}>{Math.round(usdEq).toLocaleString("en-US")}</div>
             </div>
-          </div>
-          <div style={{ marginTop: 20 }}>
-            <label style={S.lbl}>Structure Node Count</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {[1,2,3,4,5].map(n => (
-                <button key={n} type="button"
-                  onClick={() => { setPCount(n); if (tab3 > n) setTab3(1); if (tab4 > n) setTab4(1); }}
-                  style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600, borderRadius: 20, border: "1px solid", borderColor: pCount === n ? "#0071e3" : "rgba(0,0,0,0.12)", background: pCount === n ? "#0071e3" : "#fff", color: pCount === n ? "#fff" : "#1d1d1f", cursor: "pointer", fontFamily: FONT }}>
-                  {n} {n === 1 ? "Portfolio" : "Portfolios"}
-                </button>
-              ))}
+            <div>
+              <label style={S.lbl}>Number of Portfolios</label>
+              <select value={pCount}
+                onChange={e => { const n = Number(e.target.value); setPCount(n); if (tab3 > n) setTab3(1); if (tab4 > n) setTab4(1); }}
+                style={S.sel}>
+                {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n === 1 ? "Portfolio" : "Portfolios"}</option>)}
+              </select>
             </div>
           </div>
         </Section>
 
-        {/* ── 02 Component Framework Split ── */}
-        <Section id="s2" step="02" title="Component Framework Split" summary={`Total: ${totalPct}%`} open={open.s2} onToggle={toggle}>
+        {/* ── 02 Configure Portfolio AUM ── */}
+        <Section id="s2" step="02" title="Configure Portfolio AUM"
+          summary={`Total: ${totalPct === 100 ? totalPct : totalPct}% / 100%`}
+          open={open.s2} onToggle={toggle}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: "#64748b" }}>
+              Total: <strong style={{ color: totalPct === 100 ? "#2563eb" : "#dc2626" }}>{totalPct}%</strong> / 100%
+            </span>
+          </div>
           <div style={{ overflowX: "auto" }}>
             <table style={S.tbl}>
               <thead>
                 <tr>
-                  <th style={{ ...S.th, width: "33%" }}>Target Profile Unit Identification</th>
-                  <th style={{ ...S.th, width: "67%", paddingLeft: 16 }}>AUM Allocation Distribution Matrix</th>
+                  <th style={{ ...S.th, width: "35%" }}>Portfolio Name</th>
+                  <th style={{ ...S.th, width: "65%", paddingLeft: 16 }}>% of Total AUM</th>
                 </tr>
               </thead>
               <tbody>
                 {Array.from({ length: pCount }).map((_, i) => {
-                  const isLast = i === pCount - 1;
+                  const isLast = i === pCount - 1 && pCount > 1;
                   return (
                     <tr key={i}>
                       <td style={S.td}>
                         <input type="text" value={portfolios[i].name}
                           onChange={e => { const u = portfolios.map((p, j) => j === i ? { ...p, name: e.target.value } : p); setPortfolios(u); }}
                           style={{ ...S.inp, textAlign: "left" }} />
+                        <div style={{ fontSize: 11, color: isLast ? "#2563eb" : "#94a3b8", marginTop: 3 }}>
+                          Portfolio #{i + 1}{isLast ? " (Remainder Baseline)" : ""}
+                        </div>
                       </td>
                       <td style={{ ...S.td, paddingLeft: 16 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <input type="range" min="0" max="100" value={portfolios[i].aumPct}
-                            disabled={isLast && pCount > 1}
+                            disabled={isLast}
                             onChange={e => handleSlider(i, e.target.value)}
-                            style={{ flex: 1, accentColor: "#0071e3", height: 4, cursor: "pointer", opacity: isLast && pCount > 1 ? 0.3 : 1 }} />
-                          <span style={{ fontSize: 13, fontFamily: "ui-monospace,monospace", color: "#1d1d1f", background: "#f5f5f7", padding: "5px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.08)", minWidth: 52, textAlign: "right" }}>
+                            style={{ flex: 1, accentColor: "#2563eb", height: 4, cursor: isLast ? "default" : "pointer", opacity: isLast ? 0.3 : 1 }} />
+                          <span style={{ fontSize: 13, fontFamily: "ui-monospace,monospace", color: "#1e293b", background: "#f1f5f9", padding: "4px 10px", borderRadius: 4, border: "1px solid #e2e8f0", minWidth: 48, textAlign: "right" }}>
                             {portfolios[i].aumPct}%
                           </span>
                         </div>
@@ -338,8 +344,8 @@ export default function ProfilePage() {
           </div>
         </Section>
 
-        {/* ── 03 Profile Allocation Models ── */}
-        <Section id="s3" step="03" title="Profile Allocation Models" summary={`Active Nodes: ${pCount}`} open={open.s3} onToggle={toggle}>
+        {/* ── 03 Configure Individual Portfolio Strategy ── */}
+        <Section id="s3" step="03" title="Configure Individual Portfolio Strategy" summary={`Active Nodes: ${pCount}`} open={open.s3} onToggle={toggle}>
           <div style={{ display: "flex", borderBottom: "1px solid rgba(0,0,0,0.08)", overflowX: "auto", marginBottom: 16 }}>
             {Array.from({ length: pCount }).map((_, i) => (
               <button key={i} type="button" onClick={() => setTab3(i + 1)} style={tab3 === i + 1 ? S.tabA : S.tabI}>
@@ -352,7 +358,7 @@ export default function ProfilePage() {
               <table style={{ ...S.tbl, tableLayout: "fixed", minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    {[["Strategy Target","15%"],["Temporal Range","12%"],["% Target","8%"],["Hurdle %","10%"],["Stop %","10%"],["Sub-Allocation Blocks","45%"]].map(([h, w]) => (
+                    {[["Objective","16%"],["Holding Period","13%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","44%"]].map(([h, w]) => (
                       <th key={h} style={{ ...S.th, width: w }}>{h}</th>
                     ))}
                   </tr>
@@ -422,15 +428,23 @@ export default function ProfilePage() {
                 </tbody>
               </table>
             </div>
-            <button type="button" onClick={addStratRow}
-              style={{ marginTop: 12, background: "#fff", color: "#0071e3", border: "1px solid rgba(0,0,0,0.08)", padding: "7px 16px", fontSize: 13, borderRadius: 10, cursor: "pointer", fontFamily: FONT }}>
-              + Add Execution Node
-            </button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+              <button type="button" onClick={addStratRow}
+                style={{ background: "transparent", color: "#2563eb", border: "none", padding: 0, fontSize: 13, cursor: "pointer", fontFamily: FONT, fontWeight: 500 }}>
+                + Add Strategy Objective
+              </button>
+              <span style={{ fontSize: 13, color: "#64748b" }}>
+                Strategy Allocation Sum:{" "}
+                <strong style={{ color: activeStrats3.reduce((s, r) => s + r.aumPct, 0) === 100 ? "#2563eb" : "#dc2626" }}>
+                  {activeStrats3.reduce((s, r) => s + r.aumPct, 0)}%
+                </strong>
+              </span>
+            </div>
           </div>
         </Section>
 
         {/* ── 04 Build Portfolio ── */}
-        <Section id="s4" step="04" title="Build Portfolio" open={open.s4} onToggle={toggle}>
+        <Section id="s4" step="04" title="Build Portfolio Positions" open={open.s4} onToggle={toggle}>
 
           {/* ── Allocation banner — acts as tab selector + live budget display ── */}
           <div style={{ display: "flex", gap: 0, overflowX: "auto", borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: 20 }}>
@@ -632,6 +646,14 @@ export default function ProfilePage() {
             </div>
           </div>
         </Section>
+
+        {/* Create Portfolios button */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+          <button onClick={save} disabled={saving}
+            style={{ background: saving ? "#94a3b8" : "#2563eb", color: "#fff", border: "none", borderRadius: 6, padding: "12px 32px", fontSize: 15, fontWeight: 600, cursor: saving ? "default" : "pointer", fontFamily: FONT, transition: "background 0.2s" }}>
+            {saved ? "Saved ✓" : saving ? "Saving…" : `Create ${pCount} ${pCount === 1 ? "Portfolio" : "Portfolios"} →`}
+          </button>
+        </div>
 
       </div>
     </div>
