@@ -378,7 +378,8 @@ export default function ProfilePage() {
               <table style={{ ...S.tbl, tableLayout: "fixed", minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    {[["Objective","16%"],["Holding Period","13%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","44%"]].map(([h, w]) => (
+                    <th style={{ ...S.th, width: "4%" }}></th>
+                    {[["Objective","15%"],["Holding Period","12%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","42%"]].map(([h, w]) => (
                       <th key={h} style={{ ...S.th, width: w }}>{h}</th>
                     ))}
                   </tr>
@@ -389,6 +390,21 @@ export default function ProfilePage() {
                     const cellStyle = { padding: "8px 8px 8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" };
                     return (
                       <tr key={ri}>
+                        {/* Delete — shown on all rows except when only 1 row remains */}
+                        <td style={{ ...cellStyle, paddingRight: 4, textAlign: "center" as const }}>
+                          {activeStrats3.length > 1 && (
+                            <button type="button"
+                              onClick={() => {
+                                const rows = activeStrats3.filter((_, idx) => idx !== ri);
+                                const sum = rows.reduce((s, r) => s + r.aumPct, 0);
+                                rows[rows.length - 1] = { ...rows[rows.length - 1], aumPct: Math.max(0, 100 - (sum - rows[rows.length - 1].aumPct)) };
+                                setStrats(p => ({ ...p, [tab3]: rows }));
+                              }}
+                              style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 15, padding: "2px 4px", lineHeight: 1 }}>
+                              ×
+                            </button>
+                          )}
+                        </td>
                         <td style={cellStyle}>
                           <select value={row.obj} onChange={e => updateStrat(ri, "obj", e.target.value)} style={{ ...S.sel, fontSize: 13, padding: "7px 10px" }}>
                             <option value="unrealized">Unrealized Execution</option>
@@ -602,9 +618,9 @@ export default function ProfilePage() {
                                     )}
                                   </th>
                                 ))}
+                                <th style={{ ...S.sTh, width: "4%"  }}></th>
                                 <th style={{ ...S.sTh, width: "7%",  textAlign: "right" }}>Units</th>
                                 <th style={{ ...S.sTh, width: "10%", textAlign: "right" }}>Amount ({currency})</th>
-                                <th style={{ ...S.sTh, width: "5%"  }}></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -617,6 +633,10 @@ export default function ProfilePage() {
 
                                 return (
                                   <tr key={realIdx}>
+                                    <td style={{ ...S.sTd, textAlign: "center" }}>
+                                      <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
+                                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 15, padding: "2px 4px", lineHeight: 1 }}>×</button>
+                                    </td>
                                     <td style={S.sTd}><div style={{ ...S.sRo, textAlign: "left" }}>{stock.exchange || "NASDAQ"}</div></td>
                                     <td style={S.sTd}><input type="text" placeholder="--" value={stock.ticker} onChange={e => patch("ticker", e.target.value.toUpperCase())} style={{ ...S.sInp, textAlign: "left" }} /></td>
                                     <td style={{ ...S.sTd, textAlign: "right" }}><div style={S.sRo}>{stock.confidence}%</div></td>
@@ -636,10 +656,6 @@ export default function ProfilePage() {
                                     </td>
                                     <td style={{ ...S.sTd, textAlign: "right", paddingRight: 10, color: "#1d1d1f" }}>{units.toLocaleString("en-US")}</td>
                                     <td style={{ ...S.sTd, textAlign: "right", paddingRight: 10, color: "#0071e3" }}>{fmt(stockVol)}</td>
-                                    <td style={{ ...S.sTd, textAlign: "center" }}>
-                                      <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
-                                        style={{ background: "none", border: "none", color: "#aeaeb2", cursor: "pointer", fontSize: 16, padding: "2px 6px" }}>×</button>
-                                    </td>
                                   </tr>
                                 );
                               })}
