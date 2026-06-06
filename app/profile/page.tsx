@@ -618,9 +618,9 @@ export default function ProfilePage() {
                                     )}
                                   </th>
                                 ))}
-                                <th style={{ ...S.sTh, width: 28 }}></th>
                                 <th style={{ ...S.sTh, width: "7%",  textAlign: "right" }}>Units</th>
                                 <th style={{ ...S.sTh, width: "10%", textAlign: "right" }}>Amount ({currency})</th>
+                                <th style={{ ...S.sTh, width: 28 }}></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -633,10 +633,6 @@ export default function ProfilePage() {
 
                                 return (
                                   <tr key={realIdx}>
-                                    <td style={{ ...S.sTd, textAlign: "center", width: 28, padding: "2px" }}>
-                                      <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
-                                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>×</button>
-                                    </td>
                                     <td style={S.sTd}><div style={{ ...S.sRo, textAlign: "left" }}>{stock.exchange || "NASDAQ"}</div></td>
                                     <td style={S.sTd}><input type="text" placeholder="--" value={stock.ticker} onChange={e => patch("ticker", e.target.value.toUpperCase())} style={{ ...S.sInp, textAlign: "left" }} /></td>
                                     <td style={{ ...S.sTd, textAlign: "right" }}><div style={S.sRo}>{stock.confidence}%</div></td>
@@ -656,6 +652,10 @@ export default function ProfilePage() {
                                     </td>
                                     <td style={{ ...S.sTd, textAlign: "right", paddingRight: 10, color: "#1d1d1f" }}>{units.toLocaleString("en-US")}</td>
                                     <td style={{ ...S.sTd, textAlign: "right", paddingRight: 10, color: "#0071e3" }}>{fmt(stockVol)}</td>
+                                    <td style={{ ...S.sTd, textAlign: "center", width: 28, padding: "2px" }}>
+                                      <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
+                                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>×</button>
+                                    </td>
                                   </tr>
                                 );
                               })}
