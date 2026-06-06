@@ -378,8 +378,7 @@ export default function ProfilePage() {
               <table style={{ ...S.tbl, tableLayout: "fixed", minWidth: 1000 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...S.th, width: 28 }}></th>
-                    {[["Objective","15%"],["Holding Period","12%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","46%"]].map(([h, w]) => (
+                    {[["Objective","17%"],["Holding Period","13%"],["% of AUM","8%"],["Hurdle Rate","10%"],["Stop Loss","9%"],["Investment Allocation","43%"]].map(([h, w]) => (
                       <th key={h} style={{ ...S.th, width: w }}>{h}</th>
                     ))}
                   </tr>
@@ -390,26 +389,25 @@ export default function ProfilePage() {
                     const cellStyle = { padding: "8px 8px 8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" };
                     return (
                       <tr key={ri}>
-                        {/* Delete */}
-                        <td style={{ ...cellStyle, padding: "8px 2px", textAlign: "center" as const, width: 28 }}>
-                          {activeStrats3.length > 1 && (
-                            <button type="button"
-                              onClick={() => {
-                                const rows = activeStrats3.filter((_, idx) => idx !== ri);
-                                const sum = rows.reduce((s, r) => s + r.aumPct, 0);
-                                rows[rows.length - 1] = { ...rows[rows.length - 1], aumPct: Math.max(0, 100 - (sum - rows[rows.length - 1].aumPct)) };
-                                setStrats(p => ({ ...p, [tab3]: rows }));
-                              }}
-                              style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
-                              ×
-                            </button>
-                          )}
-                        </td>
                         <td style={cellStyle}>
-                          <select value={row.obj} onChange={e => updateStrat(ri, "obj", e.target.value)} style={{ ...S.sel, fontSize: 13, padding: "7px 10px" }}>
-                            <option value="unrealized">Unrealized Execution</option>
-                            <option value="realized">Realized Execution</option>
-                          </select>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            {activeStrats3.length > 1 ? (
+                              <button type="button"
+                                onClick={() => {
+                                  const rows = activeStrats3.filter((_, idx) => idx !== ri);
+                                  const sum = rows.reduce((s, r) => s + r.aumPct, 0);
+                                  rows[rows.length - 1] = { ...rows[rows.length - 1], aumPct: Math.max(0, 100 - (sum - rows[rows.length - 1].aumPct)) };
+                                  setStrats(p => ({ ...p, [tab3]: rows }));
+                                }}
+                                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>
+                                ×
+                              </button>
+                            ) : <span style={{ width: 16, flexShrink: 0 }} />}
+                            <select value={row.obj} onChange={e => updateStrat(ri, "obj", e.target.value)} style={{ ...S.sel, flex: 1, fontSize: 13, padding: "7px 8px" }}>
+                              <option value="unrealized">Unrealized Execution</option>
+                              <option value="realized">Realized Execution</option>
+                            </select>
+                          </div>
                         </td>
                         <td style={cellStyle}>
                           <select value={row.period} onChange={e => updateStrat(ri, "period", e.target.value)} style={{ ...S.sel, fontSize: 13, padding: "7px 10px" }}>
