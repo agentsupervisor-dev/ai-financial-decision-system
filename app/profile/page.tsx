@@ -44,8 +44,8 @@ const parseMoney = (s: string) => Math.floor(Number(s.replace(/[^0-9.-]+/g, ""))
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const S = {
-  card:  { background: "#fff", border: "1px solid #dde3ec", marginBottom: 12, fontFamily: FONT },
-  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", cursor: "pointer", userSelect: "none" as const },
+  card:  { background: "#fff", border: "1px solid #c8d0db", borderRadius: 0, marginBottom: 16, fontFamily: FONT },
+  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", cursor: "pointer", borderBottom: "1px solid #e8ecf0", userSelect: "none" as const },
   badge: { background: "#0071e3", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 },
   title: { fontSize: 16, fontWeight: 600, color: "#1d1d1f", margin: 0 },
   pill:  { fontSize: 12, fontFamily: "ui-monospace,monospace", color: "#6e6e73", background: "#f0f0f5", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.06)" },
@@ -250,10 +250,10 @@ export default function ProfilePage() {
 
   // ── Render ──
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: FONT }}>
+    <div style={{ minHeight: "100vh", background: "#dfe4ec", fontFamily: FONT }}>
 
       {/* Nav */}
-      <nav style={{ background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "0 40px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 50 }}>
+      <nav style={{ background: "#fff", borderBottom: "1px solid #c8d0db", padding: "0 40px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 50 }}>
         <Link href="/" style={{ fontSize: 14, color: "#0071e3", textDecoration: "none" }}>← Dashboard</Link>
         <span style={{ fontSize: 15, fontWeight: 600, color: "#1d1d1f" }}>Wealth Management Workspace</span>
         <button onClick={save} disabled={saving} style={{ padding: "7px 20px", background: saved ? "#34c759" : saving ? "#aeaeb2" : "#0071e3", color: "#fff", border: "none", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer", fontFamily: FONT, transition: "background 0.2s" }}>
@@ -265,7 +265,7 @@ export default function ProfilePage() {
 
         {/* Workspace name */}
         <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
-          style={{ fontSize: 20, fontWeight: 700, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block", marginBottom: 16 }} />
+          style={{ fontSize: 20, fontWeight: 700, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block", marginBottom: 12, padding: "4px 0" }} />
 
         {/* ── 01 Portfolio Baseline ── */}
         <Section id="s1" step="01" title="Portfolio Baseline" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
