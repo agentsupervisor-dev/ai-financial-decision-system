@@ -44,12 +44,12 @@ const parseMoney = (s: string) => Math.floor(Number(s.replace(/[^0-9.-]+/g, ""))
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const S = {
-  card:  { borderTop: "1px solid rgba(0,0,0,0.08)", marginBottom: 0, fontFamily: FONT },
-  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", cursor: "pointer", userSelect: "none" as const },
+  card:  { background: "#fff", border: "1px solid #dde3ec", marginBottom: 12, fontFamily: FONT },
+  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", cursor: "pointer", userSelect: "none" as const },
   badge: { background: "#0071e3", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 },
   title: { fontSize: 16, fontWeight: 600, color: "#1d1d1f", margin: 0 },
   pill:  { fontSize: 12, fontFamily: "ui-monospace,monospace", color: "#6e6e73", background: "#f0f0f5", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.06)" },
-  body:  { paddingBottom: 28 },
+  body:  { padding: "0 24px 24px" },
   grid:  { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 20 },
   lbl:   { display: "block", fontSize: 13, color: "#6e6e73", marginBottom: 6, fontWeight: 500 },
   sel:   { width: "100%", background: "#f5f5f7", color: "#1d1d1f", borderRadius: 10, padding: "10px 12px", fontSize: 15, border: "1px solid rgba(0,0,0,0.08)", outline: "none", fontFamily: FONT, boxSizing: "border-box" as const },
@@ -261,16 +261,11 @@ export default function ProfilePage() {
         </button>
       </nav>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 40px 40px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px 48px" }}>
 
-        {/* White content card wrapping all sections */}
-        <div style={{ background: "#fff", borderRadius: "0 0 12px 12px", padding: "0 28px" }}>
-
-          {/* Workspace name */}
-          <div style={{ padding: "20px 0 0" }}>
-            <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
-              style={{ fontSize: 20, fontWeight: 600, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block" }} />
-          </div>
+        {/* Workspace name */}
+        <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
+          style={{ fontSize: 20, fontWeight: 700, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block", marginBottom: 16 }} />
 
         {/* ── 01 Portfolio Baseline ── */}
         <Section id="s1" step="01" title="Portfolio Baseline" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
@@ -638,7 +633,6 @@ export default function ProfilePage() {
           </div>
         </Section>
 
-        </div>
       </div>
     </div>
   );
