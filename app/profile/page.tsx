@@ -44,7 +44,7 @@ const parseMoney = (s: string) => Math.floor(Number(s.replace(/[^0-9.-]+/g, ""))
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const S = {
-  card:  { background: "#fff", border: "1px solid #d0d8e4", borderRadius: 6, marginBottom: 16, fontFamily: FONT, overflow: "hidden" as const },
+  card:  { background: "#fff", border: "1px solid #dde2ea", borderRadius: 6, marginBottom: 14, fontFamily: FONT, overflow: "hidden" as const, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" },
   hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", cursor: "pointer", userSelect: "none" as const },
   badge: { background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 4 },
   title: { fontSize: 15, fontWeight: 600, color: "#1e293b", margin: 0 },
@@ -250,7 +250,7 @@ export default function ProfilePage() {
 
   // ── Render ──
   return (
-    <div style={{ minHeight: "100vh", background: "#e8edf4", fontFamily: FONT }}>
+    <div style={{ minHeight: "100vh", background: "#eef0f4", fontFamily: FONT }}>
 
       {/* Nav */}
       <nav style={{ background: "#fff", borderBottom: "1px solid #d0d8e4", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 48, position: "sticky", top: 0, zIndex: 50 }}>
@@ -261,7 +261,7 @@ export default function ProfilePage() {
         </button>
       </nav>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 24px 48px" }}>
+      <div style={{ maxWidth: "100%", padding: "20px 40px 48px" }}>
 
         {/* Workspace name */}
         <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
