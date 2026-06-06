@@ -44,12 +44,12 @@ const parseMoney = (s: string) => Math.floor(Number(s.replace(/[^0-9.-]+/g, ""))
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const S = {
-  card:  { background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" as const, marginBottom: 16, fontFamily: FONT },
-  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", cursor: "pointer", borderBottom: "1px solid rgba(0,0,0,0.06)", userSelect: "none" as const },
+  card:  { borderTop: "1px solid rgba(0,0,0,0.08)", marginBottom: 0, fontFamily: FONT },
+  hdr:   { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 0", cursor: "pointer", userSelect: "none" as const },
   badge: { background: "#0071e3", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20 },
   title: { fontSize: 16, fontWeight: 600, color: "#1d1d1f", margin: 0 },
-  pill:  { fontSize: 12, fontFamily: "ui-monospace,monospace", color: "#6e6e73", background: "#f5f5f7", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.06)" },
-  body:  { padding: 24 },
+  pill:  { fontSize: 12, fontFamily: "ui-monospace,monospace", color: "#6e6e73", background: "#f0f0f5", padding: "4px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.06)" },
+  body:  { paddingBottom: 28 },
   grid:  { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 20 },
   lbl:   { display: "block", fontSize: 13, color: "#6e6e73", marginBottom: 6, fontWeight: 500 },
   sel:   { width: "100%", background: "#f5f5f7", color: "#1d1d1f", borderRadius: 10, padding: "10px 12px", fontSize: 15, border: "1px solid rgba(0,0,0,0.08)", outline: "none", fontFamily: FONT, boxSizing: "border-box" as const },
@@ -83,13 +83,10 @@ function Section({ id, step, title, summary, open, onToggle, children }: {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {!open && summary && <span style={S.pill}>{summary}</span>}
-          <span style={{ fontSize: 20, color: "#aeaeb2", fontWeight: 300 }}>{open ? "−" : "+"}</span>
+          <span style={{ fontSize: 18, color: "#aeaeb2" }}>{open ? "−" : "+"}</span>
         </div>
       </div>
-      <div
-        className={`accordion-content${open ? "" : " collapsed"}`}
-        style={{ maxHeight: open ? "9999px" : "0" }}
-      >
+      <div className={`accordion-content${open ? "" : " collapsed"}`} style={{ maxHeight: open ? "9999px" : "0" }}>
         <div style={S.body}>{children}</div>
       </div>
     </div>
@@ -253,10 +250,10 @@ export default function ProfilePage() {
 
   // ── Render ──
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f5f7", fontFamily: FONT }}>
+    <div style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: FONT }}>
 
       {/* Nav */}
-      <nav style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 50 }}>
+      <nav style={{ background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "0 40px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 50 }}>
         <Link href="/" style={{ fontSize: 14, color: "#0071e3", textDecoration: "none" }}>← Dashboard</Link>
         <span style={{ fontSize: 15, fontWeight: 600, color: "#1d1d1f" }}>Wealth Management Workspace</span>
         <button onClick={save} disabled={saving} style={{ padding: "7px 20px", background: saved ? "#34c759" : saving ? "#aeaeb2" : "#0071e3", color: "#fff", border: "none", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: saving ? "default" : "pointer", fontFamily: FONT, transition: "background 0.2s" }}>
@@ -264,10 +261,16 @@ export default function ProfilePage() {
         </button>
       </nav>
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 40px 40px" }}>
 
-        <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
-          style={{ fontSize: 22, fontWeight: 600, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, marginBottom: 20, width: "100%", display: "block" }} />
+        {/* White content card wrapping all sections */}
+        <div style={{ background: "#fff", borderRadius: "0 0 12px 12px", padding: "0 28px" }}>
+
+          {/* Workspace name */}
+          <div style={{ padding: "20px 0 0" }}>
+            <input value={wsName} onChange={e => setWsName(e.target.value)} placeholder="Workspace name…"
+              style={{ fontSize: 20, fontWeight: 600, color: "#1d1d1f", background: "transparent", border: "none", outline: "none", fontFamily: FONT, width: "100%", display: "block" }} />
+          </div>
 
         {/* ── 01 Portfolio Baseline ── */}
         <Section id="s1" step="01" title="Portfolio Baseline" summary={`${fmt(rawAum)} ${currency}`} open={open.s1} onToggle={toggle}>
@@ -635,6 +638,7 @@ export default function ProfilePage() {
           </div>
         </Section>
 
+        </div>
       </div>
     </div>
   );
