@@ -617,8 +617,7 @@ export default function ProfilePage() {
                                   </th>
                                 ))}
                                 <th style={{ ...S.sTh, width: "7%",  textAlign: "right" }}>Units</th>
-                                <th style={{ ...S.sTh, width: "10%", textAlign: "right" }}>Amount ({currency})</th>
-                                <th style={{ ...S.sTh, width: 28 }}></th>
+                                <th style={{ ...S.sTh, width: "12%", textAlign: "right" }}>Amount ({currency})</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -649,10 +648,12 @@ export default function ProfilePage() {
                                       </div>
                                     </td>
                                     <td style={{ ...S.sTd, textAlign: "right", paddingRight: 10, color: "#1d1d1f" }}>{units.toLocaleString("en-US")}</td>
-                                    <td style={{ ...S.sTd, textAlign: "right", paddingRight: 10, color: "#0071e3" }}>{fmt(stockVol)}</td>
-                                    <td style={{ ...S.sTd, textAlign: "center", width: 28, padding: "2px" }}>
-                                      <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
-                                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>×</button>
+                                    <td style={{ ...S.sTd, paddingRight: 8 }}>
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                                        <span style={{ color: "#0071e3" }}>{fmt(stockVol)}</span>
+                                        <button type="button" onClick={() => patchStocks(ss => { ss.splice(realIdx, 1); return ss; })}
+                                          style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, flexShrink: 0 }}>×</button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
